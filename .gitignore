@@ -1,0 +1,11 @@
+/build-file/build/
+/build-file/*.war
+/build-file/*.ear
+/build-file/*_jar/
+/build-file/*_war/
+*.class
+*.log
+.env
+.idea/
+.vscode/
+

@@ -1,0 +1,52 @@
+<project name="deploy-framework-project" default="compileWar" basedir=".">
+    <property name="build.dir" value="${basedir}/build-file/build"/>
+    <property name="ejb.src" value="${basedir}/arbiochem-ejb/src/java"/>
+    <property name="war.src" value="${basedir}/arbiochem-war/src/java"/>
+    <property name="war.web" value="${basedir}/arbiochem-war/web"/>
+    <property name="lib.dir" value="${basedir}/lib"/>
+    <property name="ejb.classes" value="${build.dir}/ejb"/>
+    <property name="war.classes" value="${build.dir}/war/WEB-INF/classes"/>
+    <property name="war.dir" value="${build.dir}/war"/>
+    <property name="ejb.jar" value="${build.dir}/framework-project-ejb.jar"/>
+
+    <path id="classpath">
+        <fileset dir="${lib.dir}">
+            <include name="**/*.jar"/>
+        </fileset>
+    </path>
+
+    <target name="clean">
+        <delete dir="${build.dir}"/>
+    </target>
+
+    <target name="init" depends="clean">
+        <mkdir dir="${ejb.classes}"/>
+        <mkdir dir="${war.classes}"/>
+        <mkdir dir="${war.dir}/WEB-INF/lib"/>
+        <copy todir="${war.dir}">
+            <fileset dir="${war.web}"/>
+        </copy>
+        <copy todir="${war.dir}/WEB-INF/lib">
+            <fileset dir="${lib.dir}">
+                <include name="**/*.jar"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <target name="compileEjb" depends="init">
+        <javac srcdir="${ejb.src}" destdir="${ejb.classes}" includeantruntime="false"
+               encoding="UTF-8" classpathref="classpath"/>
+        <jar basedir="${ejb.classes}" destfile="${ejb.jar}"/>
+        <copy file="${ejb.jar}" todir="${war.dir}/WEB-INF/lib"/>
+    </target>
+
+    <target name="compileWar" depends="compileEjb">
+        <javac srcdir="${war.src}" destdir="${war.classes}" includeantruntime="false"
+               encoding="UTF-8" classpathref="classpath">
+            <classpath>
+                <pathelement location="${ejb.jar}"/>
+            </classpath>
+        </javac>
+    </target>
+</project>
+
