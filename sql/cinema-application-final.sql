@@ -251,6 +251,7 @@ CREATE TABLE FACTURECLIENT_LIGNE (
     MONTANT_HT             NUMBER(14, 2)  NOT NULL,
     MONTANT_TVA            NUMBER(14, 2)  NOT NULL,
     MONTANT_TTC            NUMBER(14, 2)  NOT NULL,
+    ETAT                   NUMBER(4)      DEFAULT 1 NOT NULL,
     IDRESERVATION_PLACE    VARCHAR2(20),
     IDVENTEDETAILS         VARCHAR2(20),
     IDFACTURECLIENT_LIGNE_ORIGINE VARCHAR2(20),
@@ -682,7 +683,129 @@ VALUES ('CAT000002', 'VIP', 'VIP', 30000, 1);
 COMMIT;
 
 -- ============================================================================
--- 8) Notes d'implementation applicative
+-- 8) Vues de lecture APJ - referentiels et planification
+-- Les classes *Lib heritent des modeles de table et lisent ces vues.
+-- Les ecritures restent effectuees sur les tables metier.
+-- ============================================================================
+CREATE OR REPLACE VIEW CINE_CATEGORIE_PLACE_LIB AS
+SELECT
+    cp.IDCATEGORIEPLACE,
+    cp.CODE,
+    cp.LIBELLE,
+    cp.PRIX_BASE,
+    cp.ACTIF
+FROM CINE_CATEGORIE_PLACE cp;
+
+CREATE OR REPLACE VIEW CINE_SALLE_LIB AS
+SELECT
+    s.IDSALLE,
+    s.CODE,
+    s.LIBELLE,
+    s.CAPACITE,
+    s.ACTIF,
+    NVL(p.NOMBRE_PLACES, 0) AS NOMBRE_PLACES
+FROM CINE_SALLE s
+LEFT JOIN (
+    SELECT IDSALLE, COUNT(*) AS NOMBRE_PLACES
+    FROM CINE_PLACE
+    GROUP BY IDSALLE
+) p ON p.IDSALLE = s.IDSALLE;
+
+CREATE OR REPLACE VIEW CINE_PLACE_LIB AS
+SELECT
+    p.IDPLACE,
+    p.IDSALLE,
+    s.LIBELLE AS IDSALLELIB,
+    p.NUMERO,
+    p.RANGEE,
+    p.IDCATEGORIEPLACE,
+    cp.LIBELLE AS IDCATEGORIEPLACELIB,
+    cp.PRIX_BASE,
+    p.ACTIF
+FROM CINE_PLACE p
+JOIN CINE_SALLE s ON s.IDSALLE = p.IDSALLE
+JOIN CINE_CATEGORIE_PLACE cp ON cp.IDCATEGORIEPLACE = p.IDCATEGORIEPLACE;
+
+CREATE OR REPLACE VIEW CINE_FILM_LIB AS
+SELECT
+    f.IDFILM,
+    f.CODE,
+    f.TITRE,
+    f.DUREE_MINUTES,
+    f.CLASSIFICATION_AGE,
+    f.ACTIF
+FROM CINE_FILM f;
+
+CREATE OR REPLACE VIEW CINE_SEANCE_LIB AS
+SELECT
+    se.IDSEANCE,
+    se.IDFILM,
+    f.TITRE AS IDFILMLIB,
+    se.IDSALLE,
+    sa.LIBELLE AS IDSALLELIB,
+    se.DATEHEURE_DEBUT,
+    se.DATEHEURE_FIN,
+    se.STATUT
+FROM CINE_SEANCE se
+JOIN CINE_FILM f ON f.IDFILM = se.IDFILM
+JOIN CINE_SALLE sa ON sa.IDSALLE = se.IDSALLE;
+
+CREATE OR REPLACE VIEW CINE_PLACE_SEANCE_DISPO AS
+SELECT
+    se.IDSEANCE,
+    p.IDPLACE,
+    p.IDSALLE,
+    sa.LIBELLE AS IDSALLELIB,
+    se.IDFILM,
+    f.TITRE AS IDFILMLIB,
+    se.DATEHEURE_DEBUT,
+    se.DATEHEURE_FIN,
+    p.NUMERO,
+    p.RANGEE,
+    p.IDCATEGORIEPLACE,
+    cp.LIBELLE AS IDCATEGORIEPLACELIB,
+    cp.PRIX_BASE,
+    p.ACTIF,
+    CASE
+        WHEN rp.IDRESERVATION_PLACE IS NOT NULL THEN 'RESERVATION'
+        WHEN vd.IDVENTEDETAILS IS NOT NULL THEN 'VENTE'
+        ELSE NULL
+    END AS SOURCE_BLOCAGE,
+    CASE
+        WHEN rp.IDRESERVATION_PLACE IS NOT NULL THEN 'BLOQUEE'
+        WHEN vd.IDVENTEDETAILS IS NOT NULL THEN vd.STATUT
+        WHEN p.ACTIF = 1 AND se.STATUT IN ('PLANIFIEE', 'OUVERTE') THEN 'DISPONIBLE'
+        ELSE 'INDISPONIBLE'
+    END AS STATUT_OCCUPATION,
+    CASE
+        WHEN p.ACTIF = 1
+         AND se.STATUT IN ('PLANIFIEE', 'OUVERTE')
+         AND rp.IDRESERVATION_PLACE IS NULL
+         AND vd.IDVENTEDETAILS IS NULL
+        THEN 1
+        ELSE 0
+    END AS DISPONIBLE
+FROM CINE_SEANCE se
+JOIN CINE_FILM f ON f.IDFILM = se.IDFILM
+JOIN CINE_SALLE sa ON sa.IDSALLE = se.IDSALLE
+JOIN CINE_PLACE p ON p.IDSALLE = se.IDSALLE
+JOIN CINE_CATEGORIE_PLACE cp ON cp.IDCATEGORIEPLACE = p.IDCATEGORIEPLACE
+LEFT JOIN CINE_RESERVATION_PLACE rp
+    ON rp.IDSEANCE = se.IDSEANCE
+   AND rp.IDPLACE = p.IDPLACE
+   AND rp.STATUT IN ('BLOQUEE', 'ACHETEE')
+LEFT JOIN CINE_RESERVATION_DETAIL rd
+    ON rd.IDRESERVATION_DETAIL = rp.IDRESERVATION_DETAIL
+LEFT JOIN CINE_RESERVATION r
+    ON r.IDRESERVATION = rd.IDRESERVATION
+   AND r.STATUT IN ('EN_ATTENTE', 'CONFIRMEE')
+LEFT JOIN VENTEDETAILS vd
+    ON vd.IDSEANCE = se.IDSEANCE
+   AND vd.IDPLACE = p.IDPLACE
+   AND vd.STATUT IN ('BLOQUEE', 'ACHETEE');
+
+-- ============================================================================
+-- 9) Notes d'implementation applicative
 -- ============================================================================
 -- 1) Le controle de chevauchement des seances d'une meme salle doit etre fait
 --    dans le service metier avant insertion/mise a jour.

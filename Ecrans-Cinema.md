@@ -34,6 +34,14 @@ Les classes APJ `PageRecherche`, `PageConsulte`, `PageInsert` et
 pas remplacer le layout global ni recopier `header.jsp`, `menu/module.jsp`,
 `footer.jsp` ou `elements/css.jsp`.
 
+Pour les opérations qui nécessitent un contrôle métier, les pages de création
+doivent passer par `UserEJB.createObject`, qui déclenche `controler(c)` avant
+l'insertion. Les pages de modification doivent passer par
+`UserEJB.updateObjectValidation`, qui déclenche `controlerUpdate(c)` avant
+l'écriture sur la même connexion. `UserEJB.updateObject` seul ne déclenche pas
+ce contrôle. Aucune page JSP cinéma n'étant encore créée, ce routage devra être
+respecté lors de leur implémentation.
+
 ## 2. Menu cinema
 
 Fichier de configuration:
@@ -262,8 +270,8 @@ Fichiers:
 - `cinema/seance/seance-liste.jsp`
 - `cinema/seance/seance-saisie.jsp`
 - `cinema/seance/seance-fiche.jsp`
-- Classe: `cinema.CineSeance`
-- Service: `service.SeanceService`
+- Classe APJ: `cinema.Seance`
+- Contrôles métier: `controler(c)` à la création et `controlerUpdate(c)` à la modification
 
 Dans `seance-saisie.jsp`, l'utilisateur choisit:
 
@@ -271,9 +279,11 @@ Dans `seance-saisie.jsp`, l'utilisateur choisit:
 Film | Salle | Date/heure debut | Date/heure fin
 ```
 
-Au clic sur `Enregistrer`, `SeanceService` verifie que la salle est libre
-sur l'intervalle. En cas de chevauchement, l'enregistrement est refuse avec
-un message explicite et l'utilisateur reste sur le formulaire.
+Au clic sur `Enregistrer`, APJ appelle le contrôle de la classe `Seance`. Celui-ci
+verrouille la salle et vérifie qu'aucune autre séance non annulée ne chevauche
+l'intervalle. À la modification, le contrôle exclut la séance elle-même. En cas
+de chevauchement, l'enregistrement est refusé avec un message explicite et
+l'utilisateur reste sur le formulaire.
 
 ## 6. Flux reservation
 

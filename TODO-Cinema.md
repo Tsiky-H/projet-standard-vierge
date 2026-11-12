@@ -95,12 +95,12 @@ Documentation finale
 
 ## 3. Classes Java APJ
 
-- [~] **Créer les 19 modèles APJ du schéma cinéma**
+- [x] **Créer les 19 modèles APJ du schéma cinéma**
   - ID: `creating-cinema-models`
   - Inventaire complet des classes, tables et classes parentes : section 2 de
     [Cinema.md](./Cinema.md).
   - `cinema.Salle`, `client.Client`, `caisse.Caisse`, `caisse.MvtCaisse` et
-    `paiement.ModePaiement` sont déjà présents; 14 modèles restent à créer.
+    `paiement.ModePaiement` étaient déjà présents; les 14 autres modèles sont créés.
   - Les références, réservations, ventes, paiements et lignes simples héritent
     de `ClassMAPTable`; `FactureClient` héritera de `ClassMere` et
     `FactureClientLigne` de `ClassFille`. `MvtCaisse` existe déjà et hérite de
@@ -108,6 +108,9 @@ Documentation finale
   - Les réservations et ventes n'ont pas de colonne `ETAT`; leurs opérations
     mère/détail/place sont donc coordonnées par les services métier, pas par
     `ClassMere`/`ClassFille`.
+  - Les 12 modèles simples et les modèles `FactureClient` / `FactureClientLigne`
+    sont créés. Les lignes de facture ont une colonne `ETAT` pour le workflow
+    APJ mère/fille.
   - Dépend de: `validating-cinema-database-model`.
 
 - [x] **Adapter le socle Java APJ**
@@ -126,13 +129,13 @@ Documentation finale
     categories, films et seances, y compris les etats actifs/inactifs.
   - Depend de: `creating-cinema-reference-classes`.
 
-- [ ] **Implementer le service de disponibilite des seances**
+- [x] **Controler les chevauchements de seances**
   - ID: `implementing-showing-availability-service`
-  - Interdire les seances qui se chevauchent dans une meme salle, avec un
-    controle transactionnel et des erreurs explicites.
-  - Depend de: `implementing-reference-services`.
+  - `Seance.controler(c)` et `Seance.controlerUpdate(c)` refusent les
+    chevauchements dans une meme salle et verrouillent la salle pendant le
+    controle. APJ les appelle dans la transaction de creation/modification.
 
-- [ ] **Implementer le service de reservation**
+- [~] **Implementer le service de reservation**
   - ID: `implementing-reservation-service`
   - Implementer le controle atomique des places, la reservation mere/detail/
     place, la date limite de paiement, le snapshot du prix et les reservations
@@ -143,14 +146,22 @@ Documentation finale
     le remboursement; une facture corrigeable peut etre soumise a nouveau.
   - Permettre l'annulation immediate d'une reservation non payee avant son
     expiration.
+  - Première étape réalisée : `ReservationService.creerReservation` crée la
+    réservation, les détails par séance et les places bloquées dans une seule
+    transaction, avec verrouillage ordonné des places et snapshot des prix. Lors
+    d'une nouvelle réservation, les réservations échues sans paiement valide à
+    temps qui occupent les places demandées sont expirées dans cette même
+    transaction, avec libération de toutes leurs places. Le paiement et
+    l'annulation restent à implémenter.
   - Depend de: `creating-reservation-classes`,
     `implementing-showing-availability-service`.
 
 - [ ] **Implementer le service d'expiration**
   - ID: `implementing-expiration-service`
-  - Expirer uniquement les reservations sans paiement valide a la date
-    d'expiration, liberer logiquement les places, refuser les paiements tardifs
-    et fournir un controle administratif.
+  - Fournir un traitement administratif pour expirer les reservations sans
+    paiement valide a temps, liberer logiquement les places et refuser les
+    paiements tardifs. L'expiration transactionnelle des reservations qui
+    occupent les places demandees est deja geree par `ReservationService`.
   - Depend de: `implementing-reservation-service`.
 
 - [ ] **Implementer le service de paiement**
@@ -209,6 +220,9 @@ Documentation finale
   - ID: `creating-reference-screens`
   - Creer les ecrans liste/saisie/fiche des categories, films et seances avec
     `PageRecherche`, `PageInsert`, `PageConsulte` et les liens APJ.
+  - Pour une modification soumise a un controle metier, utiliser
+    `UserEJB.updateObjectValidation` afin que `controlerUpdate(c)` soit appele
+    avant l'ecriture; `updateObject` seul ne declenche pas ce controle.
   - Depend de: `creating-cinema-menu`,
     `implementing-reference-services`.
 

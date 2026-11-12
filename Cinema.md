@@ -113,7 +113,9 @@ qui utilise effectivement le workflow APJ.
 | `paiement.LiaisonPaiement` | `LIAISONPAIEMENT` | `ClassMAPTable` |
 
 `FactureClient` regroupe les lignes de facture et d'avoir; un avoir référence la
-facture d'origine et ses lignes d'origine. Le décompte des 19 modèles est :
+facture d'origine et ses lignes d'origine. `FACTURECLIENT_LIGNE` porte `ETAT`
+pour satisfaire le contrat APJ de `ClassFille`, qui hérite de `ClassEtat`.
+Le décompte des 19 modèles est :
 8 référentiels (dont quatre déjà présents), 6 modèles de réservation/vente et
 5 modèles de facturation, paiement et caisse (dont `MvtCaisse` déjà présente).
 
@@ -129,7 +131,26 @@ Elles ne font pas partie des 19 modèles métier et n'héritent pas de
 - `user.CreateObject`, `user.UpdateObject`, `user.ValiderObject` — helpers
   génériques appelés par le service APJ.
 
-### 2.6 Services métier à créer après les modèles
+### 2.6 Points d'extension APJ pour les contrôles métier
+
+- À la création, `UserEJB.createObject(o, c)` délègue à `o.createObject(..., c)`;
+  l'implémentation APJ de `ClassMAPTable` appelle `controler(c)` avant
+  l'insertion. Le contrôle et l'écriture utilisent la même connexion.
+- À la modification, `UserEJB.updateObject(o, c)` n'appelle pas automatiquement
+  le contrôle métier. Le chemin `UserEJB.updateObjectValidation(o, c)` appelle
+  `controlerUpdate(c)` avant l'écriture, sur la même connexion. Sa surcharge
+  sans connexion ouvre la transaction et la valide après l'opération.
+- Les futures pages de modification cinéma doivent donc utiliser
+  `updateObjectValidation` pour les objets qui nécessitent un contrôle métier
+  avant mise à jour. Il n'existe pas encore de JSP propre au cinéma; ce choix
+  devra être appliqué lors de leur création.
+- Pour les opérations composées d'un service, la surcharge avec `Connection`
+  réutilise la connexion fournie et laisse son propriétaire gérer commit,
+  rollback et fermeture. La surcharge sans connexion ouvre une connexion,
+  désactive l'autocommit, appelle la surcharge avec connexion, puis commit ou
+  rollback et ferme la connexion.
+
+### 2.7 Services métier à créer après les modèles
 
 Ces classes portent les opérations multi-tables et les contrôles transactionnels;
 elles ne sont pas des modèles APJ et n'héritent pas de `ClassMAPTable`.
