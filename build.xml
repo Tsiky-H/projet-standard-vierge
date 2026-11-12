@@ -1,4 +1,5 @@
-<project name="deploy-framework-project" default="compileWar" basedir=".">
+<project name="cinema-apj" default="war" basedir=".">
+    <property environment="env"/>
     <property name="build.dir" value="${basedir}/build-file/build"/>
     <property name="ejb.src" value="${basedir}/arbiochem-ejb/src/java"/>
     <property name="war.src" value="${basedir}/arbiochem-war/src/java"/>
@@ -8,6 +9,10 @@
     <property name="war.classes" value="${build.dir}/war/WEB-INF/classes"/>
     <property name="war.dir" value="${build.dir}/war"/>
     <property name="ejb.jar" value="${build.dir}/framework-project-ejb.jar"/>
+    <property name="war.file" value="${build.dir}/cinema.war"/>
+    <property name="ejb.properties" value="${ejb.src}/apj.properties"/>
+    <property name="project.properties" value="${ejb.src}/project.properties"/>
+    <property name="resource.dir" value="${ejb.src}/resources"/>
 
     <path id="classpath">
         <fileset dir="${lib.dir}">
@@ -36,6 +41,12 @@
     <target name="compileEjb" depends="init">
         <javac srcdir="${ejb.src}" destdir="${ejb.classes}" includeantruntime="false"
                encoding="UTF-8" classpathref="classpath"/>
+        <copy file="${ejb.properties}" todir="${ejb.classes}"/>
+        <copy file="${project.properties}" todir="${ejb.classes}"/>
+        <mkdir dir="${ejb.classes}/java/resources"/>
+        <copy todir="${ejb.classes}/java/resources">
+            <fileset dir="${resource.dir}" includes="text*.properties"/>
+        </copy>
         <jar basedir="${ejb.classes}" destfile="${ejb.jar}"/>
         <copy file="${ejb.jar}" todir="${war.dir}/WEB-INF/lib"/>
     </target>
@@ -47,6 +58,20 @@
                 <pathelement location="${ejb.jar}"/>
             </classpath>
         </javac>
+        <copy todir="${war.classes}">
+            <fileset dir="${resource.dir}" includes="text*.properties"/>
+        </copy>
+    </target>
+
+    <target name="compile" depends="compileWar"/>
+
+    <target name="war" depends="compileWar">
+        <jar destfile="${war.file}" basedir="${war.dir}"/>
+    </target>
+
+    <target name="deploy" depends="war">
+        <fail unless="env.JBOSS_HOME" message="Définir JBOSS_HOME pour déployer sur WildFly/JBoss."/>
+        <copy file="${war.file}" todir="${env.JBOSS_HOME}/standalone/deployments"/>
     </target>
 </project>
 

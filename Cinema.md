@@ -1,132 +1,187 @@
-# Specification Cinema (APJ)
+# Spécification métier du cinéma (APJ)
 
-## 1) Regles de gestion retenues
+Ce document fixe les règles métier retenues pour la première version. Il décrit le comportement attendu; il ne signifie pas que les classes, écrans ou scripts SQL correspondants sont déjà implémentés.
 
-### 1.1 Salles, places et categories
-- Un cinema possede plusieurs salles.
-- Une salle contient plusieurs places numerotees.
-- Chaque place appartient a une seule categorie.
-- Le prix de base d'une place depend uniquement de sa categorie.
-- Le prix est copie dans la ligne de reservation/vente au moment de l'operation (historisation du prix applique).
+## 1. Règles de gestion
 
-### 1.2 Films et seances
-- Un film peut avoir plusieurs seances.
-- Une seance se deroule dans une seule salle.
-- Une salle ne peut pas avoir deux seances qui se chevauchent (controle applicatif transactionnel).
+### 1.1 Salles, places et catégories
 
-### 1.3 Reservation
-- Une reservation "mere" peut contenir plusieurs details de reservation (plusieurs seances).
-- Un detail de reservation contient les places reservees pour une seance.
-- Lors de la reservation, chaque place est mise en etat BLOQUEE avec une DATE_EXPIRATION.
-- Tant que la reservation n'est pas payee/validee, les places restent bloquees jusqu'a expiration.
-- Si la date d'expiration est depassee sans paiement valide, la reservation passe EXPIREE et les places sont liberees.
-- Une reservation est CONFIRMEE uniquement apres validation du paiement.
+- Un cinéma possède plusieurs salles; chaque salle contient des places numérotées.
+- Chaque place appartient à une catégorie. Son prix de base dépend de cette catégorie.
+- Le prix appliqué est copié dans la réservation ou la vente au moment de l'opération afin de conserver l'historique du prix.
+
+### 1.2 Films et séances
+
+- Un film peut avoir plusieurs séances; une séance se déroule dans une seule salle.
+- Une salle ne peut pas accueillir deux séances qui se chevauchent. Le contrôle est transactionnel.
+
+### 1.3 Réservations
+
+- Une réservation mère peut regrouper plusieurs séances. Chaque détail correspond à une séance et contient les places réservées pour celle-ci.
+- À la création, les places sont bloquées jusqu'à la date d'expiration, qui fixe le délai accordé au client pour payer.
+- Un paiement refusé ou non abouti ne confirme pas la réservation. Le client peut réessayer jusqu'à l'expiration; les places restent bloquées jusque-là.
+- Un paiement reçu après l'expiration est refusé et ne confirme pas la réservation.
+- Si aucun paiement valide n'est reçu à temps, la réservation passe à `EXPIREE` et les places sont libérées.
+- Si le paiement est reçu avant l'expiration, la réservation ne doit pas expirer pendant qu'elle attend une décision interne. Les places restent bloquées jusqu'à la décision sur la facture, même si la date d'expiration initiale est passée.
+- Une facture refusée mais corrigeable peut être corrigée puis soumise à nouveau. La date d'expiration initiale ne change pas; elle ne réactive pas l'expiration d'une réservation déjà payée.
+- Si la facture est définitivement refusée et ne peut pas être corrigée, la réservation est annulée immédiatement, les places sont libérées et le paiement reçu est remboursé.
+- Une réservation non payée peut être annulée à la demande du client avant son expiration; les places sont alors libérées immédiatement.
 
 ### 1.4 Vente directe
-- Une vente directe permet d'acheter des billets sans reservation prealable.
-- Les memes contraintes d'unicite de place par seance s'appliquent.
-- Une vente directe genere une facture client et un mouvement de caisse.
+
+- Une vente directe permet d'acheter des billets sans réservation préalable; les contraintes d'unicité d'une place par séance s'appliquent aussi.
+- Après paiement valide, les places sont bloquées pendant la validation de la facture. Elles ne sont acquises définitivement qu'après validation APJ de la facture.
+- Si la facture est corrigeable, la vente et le blocage des places restent en attente pendant sa correction et sa nouvelle soumission.
+- Si la facture est définitivement refusée, la vente est annulée, les places sont libérées et le paiement est remboursé. Aucun billet n'est émis; tout billet déjà créé est invalidé.
+- Les règles de demande et d'approbation de remboursement décrites ci-dessous s'appliquent aussi aux ventes directes.
 
 ### 1.5 Paiement, facture et caisse
-- Le mode de paiement est choisi:
-  - a la creation de reservation (mode prevu),
-  - puis confirme/ajuste au paiement reel.
-- Chaque paiement valide est rattache a une facture client.
-- Chaque paiement valide produit un mouvement d'encaissement en caisse.
-- Toute operation commerciale est tracable via facture et caisse.
 
-### 1.6 Contraintes critiques
-- Une place ne peut etre vendue/reservee qu'une seule fois par seance.
-- Les operations de blocage de places, paiement, confirmation doivent etre transactionnelles.
-- Les statuts sont obligatoires et controles (reservation, details, place, paiement, vente, facture).
+- Le mode de paiement est choisi à la réservation comme mode prévu, puis confirmé ou ajusté lors du paiement réel.
+- Un paiement valide est lié à une facture client. Il déclenche la création de la facture payée et du mouvement d'encaissement.
+- La facture et le mouvement de caisse ont deux états distincts: `STATUT` conserve l'état métier; `ETAT` porte le workflow de validation APJ.
+- La validation APJ est manuelle pour les factures et les mouvements de caisse. Les valeurs numériques et transitions d'`ETAT` doivent être alignées sur le fonctionnement réel du framework avant l'implémentation.
+- La réservation ou la vente devient définitive lorsque le paiement est valide et que la facture est payée et validée par APJ (`ETAT`). Le mouvement de caisse ne bloque pas la confirmation ni l'émission des billets.
+- Un mouvement d'encaissement est créé dès que le paiement est valide. Sa validation APJ est un contrôle de caisse séparé.
+- Si un mouvement de caisse est refusé, le superutilisateur le corrige et le soumet à nouveau si possible. Sinon, il l'annule sans le supprimer et crée un mouvement correct lié au mouvement remplacé. Cela n'annule pas la vente ni le paiement du client.
+- Une correction de mouvement ne constitue pas un remboursement. Un décaissement de remboursement n'est enregistré que pour l'argent effectivement rendu au client.
+- Pour la première version, un seul superutilisateur a accès à toutes les données. Aucun `IDUSER` n'est ajouté pour restreindre la visibilité par créateur.
 
-## 2) Classes APJ a creer
+### 1.6 Annulations et remboursements
 
-Les noms suivent le style APJ (objets mere/fille + pages de saisie/liste/consultation).
+- Le client peut demander le remboursement d'une réservation payée ou d'une vente directe, en totalité ou pour certains billets seulement.
+- La demande doit être reçue avant le début de la séance correspondant à chaque billet. Pour une réservation de plusieurs séances, l'échéance est vérifiée billet par billet.
+- Une demande reçue avant le début reste recevable même si le superutilisateur ne la traite qu'après le début. Une demande envoyée après le début est refusée.
+- Le remboursement nécessite l'approbation du superutilisateur.
+- Si la demande est approuvée, les billets concernés sont annulés et les places libérées. Le système crée un avoir de type document, lié à la facture d'origine, ainsi qu'un mouvement de caisse de type `DECAISSEMENT`. Cette création est déclenchée par l'approbation.
+- Si le remboursement est refusé, la vente reste valable. Pour une réservation ou une vente directe dont la facture n'était pas encore validée, la facture de paiement est validée et l'opération est finalisée; une vente déjà finalisée reste inchangée.
+- Un avoir conserve la facture d'origine: une facture déjà validée n'est ni modifiée ni supprimée. Les montants de l'avoir ne peuvent pas dépasser les montants restant remboursables de la facture d'origine.
+- Pour la première version, l'avoir est représenté comme un document de type distinct dans `FACTURECLIENT` et référence sa facture d'origine; une table `AVOIR` séparée n'est pas prévue.
 
-### 2.1 Referentiels cinema
-- `cinema.CineSalle`
-- `cinema.CineCategoriePlace`
-- `cinema.CinePlace`
-- `cinema.CineFilm`
-- `cinema.CineSeance`
+### 1.7 Statuts et traçabilité APJ
 
-### 2.2 Referentiels commerciaux
-- `vente.Client`
-- `vente.ModePaiement`
-- `vente.Caisse`
+- `STATUT` représente les états métier du cinéma (par exemple `EN_ATTENTE`, `CONFIRMEE`, `EXPIREE`, `PAYEE`, `ANNULEE`). `ETAT` est réservé au workflow APJ sur les factures et les mouvements de caisse.
+- Les référentiels, réservations, ventes, paiements et lignes n'utilisent pas `ETAT` par défaut; leurs règles métier sont gérées par les services et leurs classes APJ adaptées.
+- L'historique APJ des actions reste distinct du workflow `ETAT`.
+- Les opérations de blocage/libération des places, de paiement, de remboursement, de confirmation et d'émission des billets doivent être cohérentes et transactionnelles.
+- Une place ne peut être active que dans une seule réservation ou vente pour une même séance.
 
-### 2.3 Reservation et vente
-- `reservation.CineReservation` (Mere)
-- `reservation.CineReservationDetail` (Fille)
-- `reservation.CineReservationPlace` (Fille de detail)
-- `vente.Vente` (Mere)
-- `vente.VenteDetails` (Fille)
-- `vente.CineBillet`
+## 2. Classes Java prévues
 
-### 2.4 Facturation et encaissement
-- `facturation.FactureClient`
-- `facturation.FactureClientLigne`
-- `paiement.CinePaiement`
-- `paiement.LiaisonPaiement`
-- `caisse.MvtCaisse`
+Le schéma contient 19 tables métier; chacune aura un modèle Java APJ. L'inventaire
+ci-dessous précise la classe de base APJ. Les classes de réservation et de vente
+restent des `ClassMAPTable`: elles n'ont pas de colonne `ETAT`, et leurs opérations
+composées seront gérées par des services transactionnels. Dans APJ, `ClassMere` et
+`ClassFille` héritent de `ClassEtat`; on les réserve donc au document de facture,
+qui utilise effectivement le workflow APJ.
 
-### 2.5 Services metier (fortement recommandes)
-- `service.ReservationService`
-  - bloquer les places
-  - verifier disponibilite
-  - expirer reservation
-  - confirmer reservation apres paiement
-- `service.VenteService`
-  - vente directe de billets
-  - generation facture
-- `service.PaiementService`
-  - valider/refuser paiement
-  - lier paiement/facture
-  - generer mouvement caisse
+### 2.1 Classes déjà présentes
 
-## 3) Flux retenu de l'application
+- `cinema.Salle` — table `CINE_SALLE`, hérite de `ClassMAPTable`.
+- `client.Client` — table `CLIENT`, hérite de `ClassMAPTable`.
+- `caisse.Caisse` — table `CAISSE`, hérite de `ClassMAPTable`.
+- `caisse.MvtCaisse` — table `MVTCAISSE`, hérite de `ClassEtat`.
+- `paiement.ModePaiement` — table `MODEPAIEMENT`, hérite de `ClassMAPTable`.
 
-### Flux A - Reservation puis paiement
-1. L'utilisateur choisit film + seance + places.
-2. Le systeme verifie disponibilite des places en transaction.
-3. Creation:
-   - reservation mere (EN_ATTENTE, DATE_EXPIRATION),
-   - details (par seance),
-   - lignes places (BLOQUEE, prix unitaire capture).
-4. Le client paie avant expiration.
-5. Si paiement VALIDE:
-   - reservation -> CONFIRMEE,
-   - lignes place -> ACHETEE,
-   - generation facture client,
-   - liaison paiement/facture,
-   - mouvement caisse ENCAISSEMENT,
-   - emission des billets.
-6. Si paiement non valide et expiration atteinte:
-   - reservation -> EXPIREE,
-   - lignes place -> EXPIREE (liberees).
+### 2.2 Modèles à créer — référentiels (4)
 
-### Flux B - Vente directe
-1. L'agent choisit seance + places disponibles.
-2. Creation d'une vente directe.
-3. Creation lignes vente par place.
-4. Paiement immediat.
-5. Si paiement VALIDE:
-   - facture client,
-   - liaison paiement/facture,
-   - mouvement caisse ENCAISSEMENT,
-   - billets emis.
+| Classe Java | Table | Héritage APJ |
+|---|---|---|
+| `cinema.CategoriePlace` | `CINE_CATEGORIE_PLACE` | `ClassMAPTable` |
+| `cinema.Place` | `CINE_PLACE` | `ClassMAPTable` |
+| `cinema.Film` | `CINE_FILM` | `ClassMAPTable` |
+| `cinema.Seance` | `CINE_SEANCE` | `ClassMAPTable` |
 
-### Flux C - Annulation/remboursement (optionnel v1)
-1. Annulation selon regles metier.
-2. Creation mouvement inverse en caisse (DECAISSEMENT) si remboursement.
-3. Mise a jour des statuts (facture/vente/place/billet).
+### 2.3 Modèles à créer — réservation et vente (6)
 
-## 4) Script SQL de l'application
+| Classe Java | Table | Héritage APJ |
+|---|---|---|
+| `reservation.Reservation` | `CINE_RESERVATION` | `ClassMAPTable` |
+| `reservation.ReservationDetail` | `CINE_RESERVATION_DETAIL` | `ClassMAPTable` |
+| `reservation.ReservationPlace` | `CINE_RESERVATION_PLACE` | `ClassMAPTable` |
+| `vente.Vente` | `VENTE` | `ClassMAPTable` |
+| `vente.VenteDetail` | `VENTEDETAILS` | `ClassMAPTable` |
+| `vente.Billet` | `CINE_BILLET` | `ClassMAPTable` |
 
-Le SQL complet des tables de l'application est fourni dans:
-- `sql/cinema-application-complete.sql`
+### 2.4 Modèles à créer — facturation et paiement (4)
 
-Ordre recommande d'execution:
-1. `sql/framework-base.sql` (socle APJ)
-2. `sql/cinema-application-complete.sql` (metier cinema + commercial)
+| Classe Java | Table | Héritage APJ |
+|---|---|---|
+| `facturation.FactureClient` | `FACTURECLIENT` | `ClassMere` (qui hérite de `ClassEtat`) |
+| `facturation.FactureClientLigne` | `FACTURECLIENT_LIGNE` | `ClassFille` (qui hérite de `ClassEtat`) |
+| `paiement.Paiement` | `CINE_PAIEMENT` | `ClassMAPTable` |
+| `paiement.LiaisonPaiement` | `LIAISONPAIEMENT` | `ClassMAPTable` |
+
+`FactureClient` regroupe les lignes de facture et d'avoir; un avoir référence la
+facture d'origine et ses lignes d'origine. Le décompte des 19 modèles est :
+8 référentiels (dont quatre déjà présents), 6 modèles de réservation/vente et
+5 modèles de facturation, paiement et caisse (dont `MvtCaisse` déjà présente).
+
+### 2.5 Classes d'infrastructure APJ déjà intégrées
+
+Ces classes viennent du projet standard et ont été adaptées au schéma cinéma.
+Elles ne font pas partie des 19 modèles métier et n'héritent pas de
+`ClassMAPTable` :
+
+- `user.UserEJB` — interface du service APJ.
+- `user.UserEJBBean` — implémentation du service et session utilisateur, sans
+  dépendances métier Arbiochem/CNAPS inutilisées.
+- `user.CreateObject`, `user.UpdateObject`, `user.ValiderObject` — helpers
+  génériques appelés par le service APJ.
+
+### 2.6 Services métier à créer après les modèles
+
+Ces classes portent les opérations multi-tables et les contrôles transactionnels;
+elles ne sont pas des modèles APJ et n'héritent pas de `ClassMAPTable`.
+
+- `service.ReservationService` — disponibilité, blocage/libération, expiration,
+  confirmation et annulation.
+- `service.VenteService` — vente directe et blocage transactionnel des places.
+- `service.PaiementService` — paiement, remboursement, billet et mouvements liés.
+- `service.FacturationService` — facture, avoir et transitions de validation APJ.
+
+Les classes de lecture `Lib`/`Cpl`, servlets et contrôleurs seront ajoutés quand
+les écrans en auront besoin; ils ne sont pas nécessaires pour commencer les
+modèles métier.
+
+## 3. Flux métier
+
+### Flux A — Réservation puis paiement
+
+1. Le client choisit film, séance et places; le système contrôle leur disponibilité dans une transaction.
+2. Le système crée la réservation et ses détails/places bloquées, avec une date d'expiration et les prix appliqués.
+3. En cas d'échec ou de refus du paiement, la réservation reste en attente jusqu'à expiration et le client peut réessayer.
+4. Si le paiement est valide avant l'expiration, le système crée la facture payée, la liaison paiement/facture et le mouvement d'encaissement. Les places restent bloquées pendant la validation de la facture.
+5. Si la facture est corrigée puis validée par APJ, la réservation passe à `CONFIRMEE`, les places à `ACHETEE` et les billets sont émis.
+6. Si la facture est définitivement refusée, la réservation est annulée immédiatement, les places libérées et le paiement remboursé.
+7. Si aucun paiement valide n'arrive avant l'expiration, la réservation passe à `EXPIREE` et les places sont libérées. Aucun paiement tardif ne la confirme.
+
+### Flux B — Vente directe
+
+1. Le client/agent choisit une séance et les places disponibles; le service les bloque dans une transaction.
+2. Après paiement valide, le système crée la facture payée, la liaison paiement/facture et le mouvement d'encaissement. Les places restent bloquées pendant la validation de la facture.
+3. Après validation APJ de la facture, la vente devient définitive et les billets sont émis.
+4. Si la facture est corrigeable, elle est corrigée et soumise à nouveau; les places restent bloquées.
+5. Si elle est définitivement refusée, la vente est annulée, les places libérées et le paiement remboursé.
+
+### Flux C — Remboursement demandé par le client
+
+1. Le client demande un remboursement total ou par billet avant le début de chaque séance concernée.
+2. Le superutilisateur approuve ou refuse la demande. L'heure de dépôt fait foi même si la demande est traitée après le début de la séance.
+3. Si elle est approuvée, le système annule les billets concernés, libère les places, crée un avoir lié à la facture d'origine et crée le mouvement de décaissement.
+4. Si elle est refusée, la vente reste valable; une réservation payée dont la facture attendait sa validation est confirmée par validation de la facture.
+
+### Flux D — Validation des mouvements de caisse
+
+1. Chaque paiement valide crée un mouvement d'encaissement.
+2. Le superutilisateur valide manuellement le mouvement. Cette validation ne bloque pas les billets.
+3. En cas de refus, le mouvement est corrigé et soumis à nouveau, ou annulé et remplacé par un mouvement lié à l'original. La vente reste valable.
+
+## 4. Scripts SQL
+
+Les scripts de base de données sont prévus dans:
+
+- `sql/framework-base.sql` (socle APJ)
+- `sql/cinema-application-final.sql` (métier cinéma et commercial)
+
+Ordre d'exécution recommandé: d'abord le socle APJ, ensuite le schéma cinéma. Le script final doit rester cohérent avec ces règles et le comportement APJ réel.

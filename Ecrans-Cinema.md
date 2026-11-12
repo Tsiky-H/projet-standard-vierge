@@ -56,6 +56,7 @@ Ventes
   Liste des ventes
 Facturation
   Factures clients
+  Avoirs
 Caisse
   Caisses
   Mouvements de caisse
@@ -304,8 +305,9 @@ Nouvelle reservation
   -> creer la reservation
   -> afficher le recapitulatif et la date d'expiration
   -> payer
-  -> confirmer la reservation apres paiement valide
-  -> afficher facture et billets
+  -> paiement valide: creer la facture payee et le mouvement d'encaissement
+  -> attendre la validation APJ de la facture
+  -> apres validation: confirmer la reservation et emettre les billets
 ```
 
 ### 6.3 Detail des actions
@@ -322,10 +324,19 @@ Nouvelle reservation
    creation de la mere, des details, des lignes places et de l'expiration.
 7. Le systeme redirige vers `reservation-fiche.jsp?id=...`.
 8. `Payer` ouvre `reservation-paiement.jsp`.
-9. `PaiementService` valide le paiement, cree la facture, la liaison paiement
-   et le mouvement de caisse.
-10. En cas de succes, la reservation passe `CONFIRMEE`, les places passent
-    `ACHETEE` et les billets sont emis.
+9. `PaiementService` enregistre le paiement valide et cree la facture payee,
+   la liaison paiement/facture et le mouvement d'encaissement.
+10. La reservation et les places restent en attente pendant la validation
+    manuelle APJ de la facture. Le mouvement de caisse suit son propre
+    workflow et ne bloque pas les billets.
+11. Apres validation de la facture, la reservation passe `CONFIRMEE`, les
+    places passent `ACHETEE` et les billets sont emis.
+12. Si la facture est corrigeable, elle est corrigee et soumise a nouveau;
+    la date d'expiration initiale reste inchangee. Une reservation deja payee
+    a temps n'expire pas pendant l'attente interne.
+13. Si la facture est definitivement refusee, la reservation est annulee sans
+    attendre l'expiration, les places sont liberees et le paiement est
+    rembourse.
 
 ## 7. Flux vente directe
 
@@ -347,12 +358,18 @@ Vente directe
   -> verifier le montant
   -> choisir le mode de paiement
   -> payer
-  -> creer facture + mouvement caisse + billets
+  -> creer facture payee + mouvement d'encaissement
+  -> attendre la validation APJ de la facture, places bloquees
+  -> valider la facture
+  -> emettre les billets
   -> afficher la vente
 ```
 
-La reservation temporaire n'est pas necessaire pour une vente directe: le
-service verrouille et vend les places dans la meme transaction que la vente.
+La reservation temporaire n'est pas necessaire pour une vente directe, mais
+les places sont bloquees apres paiement jusqu'a la validation de la facture.
+Une facture corrigeable est soumise a nouveau sans liberer les places. Si elle
+est definitivement refusee, la vente est annulee, les places sont liberees et
+le paiement est rembourse.
 
 ## 8. Facture, paiement et caisse
 
@@ -371,11 +388,38 @@ Paiement
   -> FactureClient
   -> LiaisonPaiement
   -> MvtCaisse
-  -> Billets
+  -> attente de validation manuelle de la facture
+  -> apres validation facture: billets
 ```
 
-Un echec de paiement ne doit pas creer de mouvement d'encaissement et ne doit
-pas confirmer la reservation.
+Un paiement refuse n'est pas un refus de facture: aucun encaissement n'est
+cree et la reservation reste en attente jusqu'a son expiration. Si le paiement
+est valide a temps, la reservation n'expire plus pendant l'attente de la
+validation de facture.
+
+Les factures et mouvements de caisse affichent separement le `STATUT` metier
+et l'`ETAT` de validation APJ. La validation du mouvement d'encaissement ne
+bloque pas la confirmation ou les billets.
+
+### 8.1 Remboursement et avoir
+
+Le client peut demander un remboursement complet ou par billet avant le debut
+de chaque seance concernee. Pour une reservation multi-seances, chaque billet
+est controle selon sa propre seance. L'heure de depot de la demande fait foi:
+une demande deposee a temps reste recevable meme si le superutilisateur la
+traite apres le debut; une demande deposee apres le debut est refusee.
+
+Le superutilisateur approuve ou refuse la demande. A l'approbation, le systeme
+annule les billets concernes, libere les places et cree automatiquement un
+avoir dans `FACTURECLIENT`, lie a la facture d'origine, ainsi qu'un mouvement
+de caisse `DECAISSEMENT`. La facture d'origine validee est conservee sans
+modification. Si la demande est refusee, la vente reste valable; une
+reservation payee dont la facture attend sa validation est confirmee par la
+validation de cette facture.
+
+Un mouvement de caisse refuse est corrige puis soumis a nouveau s'il peut
+l'etre. Sinon, il est annule sans suppression et remplace par un nouveau
+mouvement lie a l'original; cela ne remet pas en cause la vente payee.
 
 ## 9. Expiration des reservations
 
@@ -387,13 +431,18 @@ Fichier/service:
 Avant chaque paiement, et lors d'une consultation de reservation en attente:
 
 1. comparer `SYSDATE` a `DATE_EXPIRATION`;
-2. si la date est depassee, passer la reservation a `EXPIREE`;
+2. si la date est depassee et qu'aucun paiement valide n'a ete recu a temps,
+   passer la reservation a `EXPIREE`;
 3. passer les places `BLOQUEE` a `EXPIREE`;
-4. refuser le paiement;
+4. refuser le paiement tardif;
 5. permettre une nouvelle reservation.
 
 Un traitement periodique peut nettoyer les reservations expirees, mais il ne
 remplace pas ce controle avant paiement.
+
+Une reservation payee avant l'expiration ne doit pas etre expiree pendant
+l'attente d'une validation interne de facture. Une facture definitivement
+refusee annule la reservation et libere les places immediatement.
 
 ## 10. Arborescence cible des ecrans
 
