@@ -280,20 +280,26 @@ CREATE INDEX IDX_FACTL_FACTURE ON FACTURECLIENT_LIGNE (IDFACTURECLIENT);
 
 CREATE TABLE VENTE (
     IDVENTE               VARCHAR2(20)   NOT NULL,
-    NUMERO_VENTE          VARCHAR2(30)   NOT NULL,
     DATY                  DATE           DEFAULT SYSDATE NOT NULL,
     TYPE_VENTE            VARCHAR2(20)   NOT NULL,
     STATUT                VARCHAR2(20)   DEFAULT 'BROUILLON' NOT NULL,
     IDCLIENT              VARCHAR2(20),
-    IDCAISSE              VARCHAR2(20)   NOT NULL,
+    IDCAISSE              VARCHAR2(20),
     IDRESERVATION         VARCHAR2(20),
     IDFACTURECLIENT       VARCHAR2(20),
     MONTANT_TOTAL         NUMBER(14, 2)  DEFAULT 0 NOT NULL,
     CONSTRAINT PK_VENTE PRIMARY KEY (IDVENTE),
-    CONSTRAINT UK_VENTE_NUM UNIQUE (NUMERO_VENTE),
     CONSTRAINT CK_VENTE_TYPE CHECK (TYPE_VENTE IN ('DIRECTE', 'RESERVATION')),
     CONSTRAINT CK_VENTE_STATUT CHECK (STATUT IN ('BROUILLON', 'VALIDEE', 'ANNULEE')),
     CONSTRAINT CK_VENTE_MONTANT CHECK (MONTANT_TOTAL >= 0),
+    CONSTRAINT CK_VENTE_SOURCE CHECK (
+        (TYPE_VENTE = 'DIRECTE' AND IDRESERVATION IS NULL)
+        OR (TYPE_VENTE = 'RESERVATION' AND IDRESERVATION IS NOT NULL)
+    ),
+    CONSTRAINT CK_VENTE_CAISSE CHECK (
+        IDCAISSE IS NOT NULL
+        OR (TYPE_VENTE = 'RESERVATION' AND STATUT = 'BROUILLON')
+    ),
     CONSTRAINT FK_VENTE_CLIENT FOREIGN KEY (IDCLIENT)
         REFERENCES CLIENT (IDCLIENT),
     CONSTRAINT FK_VENTE_CAISSE FOREIGN KEY (IDCAISSE)
@@ -352,20 +358,13 @@ CREATE TABLE CINE_PAIEMENT (
     STATUT                VARCHAR2(20)   DEFAULT 'EN_ATTENTE' NOT NULL,
     MONTANT               NUMBER(14, 2)  NOT NULL,
     REFERENCE_EXTERNE     VARCHAR2(120),
-    IDRESERVATION         VARCHAR2(20),
-    IDVENTE               VARCHAR2(20),
+    IDVENTE               VARCHAR2(20)   NOT NULL,
     CONSTRAINT PK_CINE_PAIEMENT PRIMARY KEY (IDPAIEMENT),
     CONSTRAINT UK_CINE_PAIEMENT_NUM UNIQUE (NUMERO_PAIEMENT),
     CONSTRAINT CK_PAY_STATUT CHECK (STATUT IN ('EN_ATTENTE', 'VALIDE', 'REFUSE', 'ANNULE')),
     CONSTRAINT CK_PAY_MONTANT CHECK (MONTANT > 0),
-    CONSTRAINT CK_PAY_SOURCE CHECK (
-        (IDRESERVATION IS NOT NULL AND IDVENTE IS NULL)
-        OR (IDRESERVATION IS NULL AND IDVENTE IS NOT NULL)
-    ),
     CONSTRAINT FK_PAY_MODE FOREIGN KEY (IDMODEPAIEMENT)
         REFERENCES MODEPAIEMENT (IDMODEPAIEMENT),
-    CONSTRAINT FK_PAY_RES FOREIGN KEY (IDRESERVATION)
-        REFERENCES CINE_RESERVATION (IDRESERVATION),
     CONSTRAINT FK_PAY_VENTE FOREIGN KEY (IDVENTE)
         REFERENCES VENTE (IDVENTE)
 );
@@ -810,8 +809,9 @@ LEFT JOIN VENTEDETAILS vd
 -- 1) Le controle de chevauchement des seances d'une meme salle doit etre fait
 --    dans le service metier avant insertion/mise a jour.
 -- 2) L'expiration libere uniquement une reservation sans paiement valide recu
---    avant DATE_EXPIRATION. Une reservation payee a temps reste bloquee pendant
---    l'attente de validation de la facture.
+--    avant DATE_EXPIRATION. Le paiement est retrouve par CINE_PAIEMENT.IDVENTE
+--    puis VENTE.IDRESERVATION. Une reservation payee a temps reste bloquee
+--    pendant l'attente de validation de la facture.
 -- 3) La reservation/vente est finalisee apres paiement valide et facture
 --    validee par APJ. La validation du mouvement de caisse est independante.
 -- 4) Les demandes de remboursement sont controlees par billet et doivent etre

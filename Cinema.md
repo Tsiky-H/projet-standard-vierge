@@ -18,18 +18,22 @@ Ce document fixe les règles métier retenues pour la première version. Il déc
 ### 1.3 Réservations
 
 - Une réservation mère peut regrouper plusieurs séances. Chaque détail correspond à une séance et contient les places réservées pour celle-ci.
-- À la création, les places sont bloquées jusqu'à la date d'expiration, qui fixe le délai accordé au client pour payer.
-- Un paiement refusé ou non abouti ne confirme pas la réservation. Le client peut réessayer jusqu'à l'expiration; les places restent bloquées jusque-là.
+- À la création, le système crée dans la même transaction la réservation, ses détails et places bloquées, ainsi qu'une ligne `VENTE` de type `RESERVATION`, liée à cette réservation et au statut `BROUILLON`.
+- La caisse n'est pas encore connue à la création de cette vente brouillon. `VENTE.IDCAISSE` reste nul jusqu'à l'enregistrement du paiement; le service de paiement y affecte alors la caisse active utilisée pour encaisser.
+- La ligne `VENTE` existe avant toute tentative de paiement. Chaque paiement, valide ou refusé, référence cette vente par `CINE_PAIEMENT.IDVENTE`; le paiement ne référence pas directement la réservation. `VENTE.IDRESERVATION` conserve le lien vers la réservation source.
+- Un paiement refusé ou non abouti ne confirme pas la réservation et ne valide pas la vente. Le client peut réessayer jusqu'à l'expiration; les places restent bloquées jusque-là et la vente reste `BROUILLON`.
 - Un paiement reçu après l'expiration est refusé et ne confirme pas la réservation.
-- Si aucun paiement valide n'est reçu à temps, la réservation passe à `EXPIREE` et les places sont libérées.
-- Si le paiement est reçu avant l'expiration, la réservation ne doit pas expirer pendant qu'elle attend une décision interne. Les places restent bloquées jusqu'à la décision sur la facture, même si la date d'expiration initiale est passée.
+- Si aucun paiement valide n'est reçu à temps, la réservation passe à `EXPIREE`, la vente liée passe à `ANNULEE` et les places sont libérées. Le contrôle du paiement à temps retrouve la réservation en passant par `CINE_PAIEMENT.IDVENTE` puis `VENTE.IDRESERVATION`.
+- Si le paiement est reçu avant l'expiration, la réservation ne doit pas expirer pendant qu'elle attend une décision interne. La vente reste `BROUILLON` et les places restent bloquées jusqu'à la décision sur la facture, même si la date d'expiration initiale est passée.
 - Une facture refusée mais corrigeable peut être corrigée puis soumise à nouveau. La date d'expiration initiale ne change pas; elle ne réactive pas l'expiration d'une réservation déjà payée.
-- Si la facture est définitivement refusée et ne peut pas être corrigée, la réservation est annulée immédiatement, les places sont libérées et le paiement reçu est remboursé.
-- Une réservation non payée peut être annulée à la demande du client avant son expiration; les places sont alors libérées immédiatement.
+- Après validation APJ de la facture, la réservation passe à `CONFIRMEE`, la vente à `VALIDEE`, les places à `ACHETEE` et les billets sont émis.
+- Si la facture est définitivement refusée et ne peut pas être corrigée, la réservation et la vente sont annulées immédiatement, les places sont libérées et le paiement reçu est remboursé.
+- Une réservation non payée peut être annulée à la demande du client avant son expiration; la réservation et sa vente brouillon sont annulées et les places libérées immédiatement.
 
 ### 1.4 Vente directe
 
 - Une vente directe permet d'acheter des billets sans réservation préalable; les contraintes d'unicité d'une place par séance s'appliquent aussi.
+- La ligne `VENTE` brouillon est créée avant l'enregistrement des tentatives de paiement; les paiements valides ou refusés la référencent par `CINE_PAIEMENT.IDVENTE`.
 - Après paiement valide, les places sont bloquées pendant la validation de la facture. Elles ne sont acquises définitivement qu'après validation APJ de la facture.
 - Si la facture est corrigeable, la vente et le blocage des places restent en attente pendant sa correction et sa nouvelle soumission.
 - Si la facture est définitivement refusée, la vente est annulée, les places sont libérées et le paiement est remboursé. Aucun billet n'est émis; tout billet déjà créé est invalidé.
@@ -38,6 +42,7 @@ Ce document fixe les règles métier retenues pour la première version. Il déc
 ### 1.5 Paiement, facture et caisse
 
 - Le mode de paiement est choisi à la réservation comme mode prévu, puis confirmé ou ajusté lors du paiement réel.
+- Tout paiement cinéma référence une ligne `VENTE` par `IDVENTE`. Pour une réservation, la vente de type `RESERVATION` porte le lien à la réservation dans `VENTE.IDRESERVATION`.
 - Un paiement valide est lié à une facture client. Il déclenche la création de la facture payée et du mouvement d'encaissement.
 - La facture et le mouvement de caisse ont deux états distincts: `STATUT` conserve l'état métier; `ETAT` porte le workflow de validation APJ.
 - La validation APJ est manuelle pour les factures et les mouvements de caisse. Les valeurs numériques et transitions d'`ETAT` doivent être alignées sur le fonctionnement réel du framework avant l'implémentation.
@@ -155,9 +160,11 @@ Elles ne font pas partie des 19 modèles métier et n'héritent pas de
 Ces classes portent les opérations multi-tables et les contrôles transactionnels;
 elles ne sont pas des modèles APJ et n'héritent pas de `ClassMAPTable`.
 
-- `service.ReservationService` — disponibilité, blocage/libération, expiration,
-  confirmation et annulation.
-- `service.VenteService` — vente directe et blocage transactionnel des places.
+- `service.ReservationService` — création de la réservation et de sa vente
+  brouillon liée, disponibilité, blocage/libération, expiration, confirmation
+  et annulation.
+- `service.VenteService` — création des ventes directes brouillon et blocage
+  transactionnel des places.
 - `service.PaiementService` — paiement, remboursement, billet et mouvements liés.
 - `service.FacturationService` — facture, avoir et transitions de validation APJ.
 
@@ -170,12 +177,12 @@ modèles métier.
 ### Flux A — Réservation puis paiement
 
 1. Le client choisit film, séance et places; le système contrôle leur disponibilité dans une transaction.
-2. Le système crée la réservation et ses détails/places bloquées, avec une date d'expiration et les prix appliqués.
-3. En cas d'échec ou de refus du paiement, la réservation reste en attente jusqu'à expiration et le client peut réessayer.
-4. Si le paiement est valide avant l'expiration, le système crée la facture payée, la liaison paiement/facture et le mouvement d'encaissement. Les places restent bloquées pendant la validation de la facture.
-5. Si la facture est corrigée puis validée par APJ, la réservation passe à `CONFIRMEE`, les places à `ACHETEE` et les billets sont émis.
-6. Si la facture est définitivement refusée, la réservation est annulée immédiatement, les places libérées et le paiement remboursé.
-7. Si aucun paiement valide n'arrive avant l'expiration, la réservation passe à `EXPIREE` et les places sont libérées. Aucun paiement tardif ne la confirme.
+2. Le système crée la réservation, ses détails et places bloquées, ainsi qu'une vente `BROUILLON` de type `RESERVATION` liée à celle-ci, avec date d'expiration et prix appliqués.
+3. Chaque tentative de paiement référence cette vente. En cas d'échec ou de refus, la réservation reste en attente, la vente reste brouillon et le client peut réessayer jusqu'à expiration.
+4. Si le paiement est valide avant l'expiration, le système crée la facture payée, la liaison paiement/facture et le mouvement d'encaissement. Les places restent bloquées et la vente reste brouillon pendant la validation de la facture.
+5. Si la facture est corrigée puis validée par APJ, la réservation passe à `CONFIRMEE`, la vente à `VALIDEE`, les places à `ACHETEE` et les billets sont émis.
+6. Si la facture est définitivement refusée, la réservation et la vente sont annulées immédiatement, les places libérées et le paiement remboursé.
+7. Si aucun paiement valide n'arrive avant l'expiration, la réservation passe à `EXPIREE`, la vente à `ANNULEE` et les places sont libérées. Aucun paiement tardif ne la confirme.
 
 ### Flux B — Vente directe
 

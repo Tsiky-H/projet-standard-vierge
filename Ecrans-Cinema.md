@@ -313,11 +313,13 @@ Nouvelle reservation
   -> ajouter une autre seance (optionnel)
   -> choisir le mode de paiement prevu
   -> creer la reservation
+  -> creer une vente brouillon de type RESERVATION liee a la reservation
   -> afficher le recapitulatif et la date d'expiration
   -> payer
+  -> paiement valide ou refuse reference la vente
   -> paiement valide: creer la facture payee et le mouvement d'encaissement
   -> attendre la validation APJ de la facture
-  -> apres validation: confirmer la reservation et emettre les billets
+  -> apres validation: valider la vente, confirmer la reservation et emettre les billets
 ```
 
 ### 6.3 Detail des actions
@@ -331,22 +333,26 @@ Nouvelle reservation
 5. `Ajouter une seance` permet de recommencer la selection pour une autre
    seance dans la meme reservation mere.
 6. `Valider la reservation` appelle `ReservationService` dans une transaction:
-   creation de la mere, des details, des lignes places et de l'expiration.
+   creation de la mere, des details, des lignes places, de l'expiration et
+   d'une vente `BROUILLON` de type `RESERVATION` liee a la reservation. La
+   caisse de la vente reste vide jusqu'a l'enregistrement du paiement.
 7. Le systeme redirige vers `reservation-fiche.jsp?id=...`.
 8. `Payer` ouvre `reservation-paiement.jsp`.
-9. `PaiementService` enregistre le paiement valide et cree la facture payee,
-   la liaison paiement/facture et le mouvement d'encaissement.
+9. `PaiementService` rattache chaque tentative à la vente par `IDVENTE`.
+   Après paiement valide, il crée la facture payée, la liaison paiement/facture
+   et le mouvement d'encaissement, renseigne la caisse active utilisée, et la
+   vente reste `BROUILLON`.
 10. La reservation et les places restent en attente pendant la validation
     manuelle APJ de la facture. Le mouvement de caisse suit son propre
     workflow et ne bloque pas les billets.
-11. Apres validation de la facture, la reservation passe `CONFIRMEE`, les
-    places passent `ACHETEE` et les billets sont emis.
+11. Apres validation de la facture, la vente passe `VALIDEE`, la reservation
+    passe `CONFIRMEE`, les places passent `ACHETEE` et les billets sont emis.
 12. Si la facture est corrigeable, elle est corrigee et soumise a nouveau;
     la date d'expiration initiale reste inchangee. Une reservation deja payee
     a temps n'expire pas pendant l'attente interne.
-13. Si la facture est definitivement refusee, la reservation est annulee sans
-    attendre l'expiration, les places sont liberees et le paiement est
-    rembourse.
+13. Si la facture est definitivement refusee, la reservation et la vente sont
+    annulees sans attendre l'expiration, les places sont liberees et le paiement
+    est rembourse.
 
 ## 7. Flux vente directe
 
@@ -367,8 +373,9 @@ Vente directe
   -> choisir les places sur le plan
   -> verifier le montant
   -> choisir le mode de paiement
+  -> creer une vente brouillon avant la tentative de paiement
   -> payer
-  -> creer facture payee + mouvement d'encaissement
+  -> le paiement reference la vente; paiement valide: creer facture payee + mouvement d'encaissement
   -> attendre la validation APJ de la facture, places bloquees
   -> valider la facture
   -> emettre les billets
@@ -394,17 +401,19 @@ Fichiers:
 Apres un paiement valide:
 
 ```text
-Paiement
+Vente brouillon
+  -> CINE_PAIEMENT (IDVENTE)
   -> FactureClient
   -> LiaisonPaiement
   -> MvtCaisse
   -> attente de validation manuelle de la facture
-  -> apres validation facture: billets
+  -> apres validation facture: VENTE VALIDEE et billets
 ```
 
 Un paiement refuse n'est pas un refus de facture: aucun encaissement n'est
-cree et la reservation reste en attente jusqu'a son expiration. Si le paiement
-est valide a temps, la reservation n'expire plus pendant l'attente de la
+cree, le paiement reste rattache a la vente brouillon et la reservation reste
+en attente jusqu'a son expiration. Si le paiement est valide a temps, la vente
+reste brouillon et la reservation n'expire plus pendant l'attente de la
 validation de facture.
 
 Les factures et mouvements de caisse affichent separement le `STATUT` metier

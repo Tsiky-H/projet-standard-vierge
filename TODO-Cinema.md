@@ -82,6 +82,12 @@ Documentation finale
   - ID: `validating-cinema-database-model`
   - Verifier les cles etrangeres, contraintes d'unicite, statuts, snapshots
     de prix, unicite d'une place par seance et index.
+  - Le script impose maintenant un paiement rattaché à `VENTE.IDVENTE`; pour
+    une réservation, `VENTE.IDRESERVATION` donne la réservation source.
+    L'expiration doit suivre ce lien.
+  - `VENTE.IDCAISSE` est nullable uniquement pour une vente de réservation
+    `BROUILLON`; la caisse active est affectée à l'enregistrement du paiement.
+    `Vente.controler(c)` applique cette règle à la création.
   - Prevoir `ETAT` uniquement pour les factures et mouvements de caisse qui
     utilisent la validation APJ; conserver `STATUT` pour les etats metier.
   - Representer un avoir comme un document dans `FACTURECLIENT`, avec un type
@@ -146,13 +152,14 @@ Documentation finale
     le remboursement; une facture corrigeable peut etre soumise a nouveau.
   - Permettre l'annulation immediate d'une reservation non payee avant son
     expiration.
-  - Première étape réalisée : `ReservationService.creerReservation` crée la
-    réservation, les détails par séance et les places bloquées dans une seule
-    transaction, avec verrouillage ordonné des places et snapshot des prix. Lors
-    d'une nouvelle réservation, les réservations échues sans paiement valide à
-    temps qui occupent les places demandées sont expirées dans cette même
-    transaction, avec libération de toutes leurs places. Le paiement et
-    l'annulation restent à implémenter.
+  - Le code actuel de `ReservationService.creerReservation` crée la réservation,
+    ses détails et ses places bloquées dans une transaction, avec verrouillage
+    ordonné et snapshot des prix. Il reste à y créer la vente brouillon liée.
+  - Le code d'expiration transactionnelle doit aussi être adapté à la nouvelle
+    règle : vérifier le paiement valide à temps par `CINE_PAIEMENT.IDVENTE` puis
+    `VENTE.IDRESERVATION`, et annuler la vente brouillon quand la réservation
+    expire.
+  - Le paiement et l'annulation à la demande restent à implémenter.
   - Depend de: `creating-reservation-classes`,
     `implementing-showing-availability-service`.
 
@@ -166,8 +173,10 @@ Documentation finale
 
 - [ ] **Implementer le service de paiement**
   - ID: `implementing-payment-service`
-  - Enregistrer les paiements valides/refuses; un paiement valide cree une
-    facture payee, la liaison paiement/facture et un mouvement d'encaissement.
+  - Enregistrer les paiements valides/refuses en les rattachant toujours à
+    `VENTE.IDVENTE`; pour une réservation, retrouver la source par
+    `VENTE.IDRESERVATION`. Un paiement valide cree une facture payee, la liaison
+    paiement/facture et un mouvement d'encaissement.
   - Confirmer une reservation ou finaliser une vente seulement apres paiement
     valide et facture validee par APJ. La validation du mouvement de caisse ne
     bloque pas l'emission des billets.
@@ -184,8 +193,9 @@ Documentation finale
 
 - [ ] **Implementer le service de vente directe**
   - ID: `implementing-direct-sale-service`
-  - Implementer la vente transactionnelle de billets avec verrouillage des
-    places, snapshot des prix, facture et paiement. Garder les places bloquees
+  - Creer la vente brouillon avant la tentative de paiement; implementer la
+    vente transactionnelle de billets avec verrouillage des places, snapshot
+    des prix, facture et paiement rattache a la vente. Garder les places bloquees
     jusqu'a validation APJ de la facture; emettre les billets ensuite.
   - Si la facture est corrigeable, conserver le blocage pendant sa
     correction. Si elle est definitivement refusee, annuler la vente, liberer
