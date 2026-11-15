@@ -10,7 +10,8 @@ cinema dans le projet vierge.
 - `[x]` termine
 - `[!]` bloque
 
-Toutes les taches sont actuellement a faire.
+Les cases indiquent l'avancement courant; les taches cochees sont deja
+realisees et les taches marquees `[~]` restent en cours.
 
 ## Ordre general
 
@@ -141,7 +142,7 @@ Documentation finale
     chevauchements dans une meme salle et verrouillent la salle pendant le
     controle. APJ les appelle dans la transaction de creation/modification.
 
-- [~] **Implementer le service de reservation**
+- [ ] **Implementer le service de reservation**
   - ID: `implementing-reservation-service`
   - Implementer le controle atomique des places, la reservation mere/detail/
     place, la date limite de paiement, le snapshot du prix et les reservations
@@ -152,13 +153,12 @@ Documentation finale
     le remboursement; une facture corrigeable peut etre soumise a nouveau.
   - Permettre l'annulation immediate d'une reservation non payee avant son
     expiration.
-  - Le code actuel de `ReservationService.creerReservation` crée la réservation,
-    ses détails et ses places bloquées dans une transaction, avec verrouillage
-    ordonné et snapshot des prix. Il reste à y créer la vente brouillon liée.
-  - Le code d'expiration transactionnelle doit aussi être adapté à la nouvelle
-    règle : vérifier le paiement valide à temps par `CINE_PAIEMENT.IDVENTE` puis
-    `VENTE.IDRESERVATION`, et annuler la vente brouillon quand la réservation
-    expire.
+  - `ReservationService` est actuellement un squelette vide. Recréer
+    `creerReservation` avec verrouillage ordonné des places, snapshot des prix,
+    réservation/détails/places bloquées et vente brouillon liée.
+  - L'expiration doit vérifier le paiement valide à temps par
+    `CINE_PAIEMENT.IDVENTE`, puis `VENTE.IDRESERVATION`; elle doit aussi annuler
+    la vente brouillon quand la réservation expire.
   - Le paiement et l'annulation à la demande restent à implémenter.
   - Depend de: `creating-reservation-classes`,
     `implementing-showing-availability-service`.
@@ -167,8 +167,8 @@ Documentation finale
   - ID: `implementing-expiration-service`
   - Fournir un traitement administratif pour expirer les reservations sans
     paiement valide a temps, liberer logiquement les places et refuser les
-    paiements tardifs. L'expiration transactionnelle des reservations qui
-    occupent les places demandees est deja geree par `ReservationService`.
+    paiements tardifs. Le traitement transactionnel d'expiration reste à
+    implémenter dans `ReservationService`.
   - Depend de: `implementing-reservation-service`.
 
 - [ ] **Implementer le service de paiement**
@@ -195,7 +195,8 @@ Documentation finale
   - ID: `implementing-direct-sale-service`
   - Creer la vente brouillon avant la tentative de paiement; implementer la
     vente transactionnelle de billets avec verrouillage des places, snapshot
-    des prix, facture et paiement rattache a la vente. Garder les places bloquees
+    des prix, date/heure de vente (`Timestamp`), facture et paiement rattache a
+    la vente. Garder les places bloquees
     jusqu'a validation APJ de la facture; emettre les billets ensuite.
   - Si la facture est corrigeable, conserver le blocage pendant sa
     correction. Si elle est definitivement refusee, annuler la vente, liberer

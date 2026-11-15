@@ -1,6 +1,8 @@
 package reservation;
 
 import bean.ClassMAPTable;
+import cinema.ReglesCinema;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -13,7 +15,7 @@ public class ReservationPlace extends ClassMAPTable {
     private String idplace;
     private String idcategorieplace;
     private double prix_unitaire;
-    private String statut = "BLOQUEE";
+    private String statut = ReglesCinema.STATUT_BLOQUEE;
     private Timestamp date_blocage;
     private Timestamp date_expiration;
     private Timestamp date_validation;
@@ -33,13 +35,17 @@ public class ReservationPlace extends ClassMAPTable {
                 || idcategorieplace == null || idcategorieplace.trim().isEmpty()) {
             throw new IllegalArgumentException("Le détail, la séance, la place et sa catégorie sont obligatoires.");
         }
-        if (prix_unitaire < 0 || Double.isNaN(prix_unitaire) || Double.isInfinite(prix_unitaire)) {
+        BigDecimal prix = ReglesCinema.montantDecimal(
+                prix_unitaire, "Le prix unitaire de la place est invalide.");
+        if (prix.signum() < 0) {
             throw new IllegalArgumentException("Le prix unitaire de la place est invalide.");
         }
-        if (!"BLOQUEE".equals(statut)) {
+        if (!ReglesCinema.STATUT_BLOQUEE.equals(statut)) {
             throw new IllegalArgumentException("Une place créée dans une réservation doit avoir le statut BLOQUEE.");
         }
-        if (date_blocage == null || date_expiration == null || date_expiration.before(date_blocage)) {
+        if (date_blocage == null || date_expiration == null
+                || date_expiration.before(date_blocage)
+                || !date_expiration.after(new Timestamp(System.currentTimeMillis()))) {
             throw new IllegalArgumentException("Les dates de blocage et d'expiration sont invalides.");
         }
         if (date_validation != null) {
@@ -47,13 +53,16 @@ public class ReservationPlace extends ClassMAPTable {
         }
 
         String sql = "SELECT d.IDSEANCE, d.STATUT AS STATUT_DETAIL, "
+                + "r.STATUT AS STATUT_RESERVATION, r.DATE_EXPIRATION AS EXPIRATION_RESERVATION, "
                 + "p.IDSALLE AS SALLE_PLACE, p.ACTIF AS PLACE_ACTIVE, s.IDSALLE AS SALLE_SEANCE, "
-                + "p.IDCATEGORIEPLACE AS CATEGORIE_PLACE, cp.ACTIF AS CATEGORIE_ACTIVE "
+                + "p.IDCATEGORIEPLACE AS CATEGORIE_PLACE, cp.ACTIF AS CATEGORIE_ACTIVE, "
+                + "s.STATUT AS STATUT_SEANCE, s.DATEHEURE_DEBUT "
                 + "FROM CINE_RESERVATION_DETAIL d "
+                + "JOIN CINE_RESERVATION r ON r.IDRESERVATION = d.IDRESERVATION "
                 + "JOIN CINE_PLACE p ON p.IDPLACE = ? "
                 + "JOIN CINE_SEANCE s ON s.IDSEANCE = ? "
                 + "JOIN CINE_CATEGORIE_PLACE cp ON cp.IDCATEGORIEPLACE = ? "
-                + "WHERE d.IDRESERVATION_DETAIL = ?";
+                + "WHERE d.IDRESERVATION_DETAIL = ? FOR UPDATE OF p.IDPLACE";
         try (PreparedStatement ps = connexion.prepareStatement(sql)) {
             ps.setString(1, idplace);
             ps.setString(2, idseance);
@@ -66,7 +75,7 @@ public class ReservationPlace extends ClassMAPTable {
                 if (!idseance.equals(rs.getString("IDSEANCE"))) {
                     throw new Exception("La séance de la place ne correspond pas à celle du détail.");
                 }
-                if (!"EN_ATTENTE".equals(rs.getString("STATUT_DETAIL"))) {
+                if (!ReglesCinema.STATUT_EN_ATTENTE.equals(rs.getString("STATUT_DETAIL"))) {
                     throw new Exception("Une place ne peut être ajoutée qu'à un détail en attente.");
                 }
                 if (rs.getInt("PLACE_ACTIVE") != 1) {
@@ -80,6 +89,44 @@ public class ReservationPlace extends ClassMAPTable {
                 }
                 if (rs.getInt("CATEGORIE_ACTIVE") != 1) {
                     throw new Exception("La catégorie de la place est inactive.");
+                }
+                if (!ReglesCinema.STATUT_EN_ATTENTE.equals(rs.getString("STATUT_RESERVATION"))) {
+                    throw new Exception("La réservation n'est plus en attente.");
+                }
+                Timestamp expirationReservation = rs.getTimestamp("EXPIRATION_RESERVATION");
+                if (expirationReservation == null || !expirationReservation.after(date_blocage)) {
+                    throw new Exception("La réservation a expiré ou sa date de blocage est incohérente.");
+                }
+                if (date_expiration.getTime() / 1000 != expirationReservation.getTime() / 1000) {
+                    throw new Exception("L'expiration de la place doit correspondre à celle de la réservation.");
+                }
+                String statutSeance = rs.getString("STATUT_SEANCE");
+                if ((!ReglesCinema.STATUT_PLANIFIEE.equals(statutSeance)
+                        && !ReglesCinema.STATUT_OUVERTE.equals(statutSeance))
+                        || rs.getTimestamp("DATEHEURE_DEBUT") == null
+                        || !rs.getTimestamp("DATEHEURE_DEBUT").after(new Timestamp(System.currentTimeMillis()))) {
+                    throw new Exception("La séance n'est plus disponible à la réservation.");
+                }
+            }
+        }
+        verifierPlaceDisponible(connexion);
+    }
+
+    private void verifierPlaceDisponible(Connection connexion) throws Exception {
+        String[] requetes = {
+            "SELECT 1 FROM CINE_RESERVATION_PLACE WHERE IDSEANCE = ? AND IDPLACE = ? "
+                + "AND STATUT IN ('" + ReglesCinema.STATUT_BLOQUEE + "', '" + ReglesCinema.STATUT_ACHETEE + "') AND ROWNUM = 1",
+            "SELECT 1 FROM VENTEDETAILS WHERE IDSEANCE = ? AND IDPLACE = ? "
+                + "AND STATUT IN ('" + ReglesCinema.STATUT_BLOQUEE + "', '" + ReglesCinema.STATUT_ACHETEE + "') AND ROWNUM = 1"
+        };
+        for (String sql : requetes) {
+            try (PreparedStatement ps = connexion.prepareStatement(sql)) {
+                ps.setString(1, idseance);
+                ps.setString(2, idplace);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        throw new Exception("La place est déjà bloquée ou vendue pour cette séance.");
+                    }
                 }
             }
         }

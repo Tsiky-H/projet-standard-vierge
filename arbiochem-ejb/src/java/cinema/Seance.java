@@ -13,7 +13,7 @@ public class Seance extends ClassMAPTable {
     private String idsalle;
     private Timestamp dateheure_debut;
     private Timestamp dateheure_fin;
-    private String statut = "PLANIFIEE";
+    private String statut = ReglesCinema.STATUT_PLANIFIEE;
 
     public Seance() {
         setNomTable("CINE_SEANCE");
@@ -45,8 +45,8 @@ public class Seance extends ClassMAPTable {
         if (connexion == null) {
             throw new IllegalArgumentException("La connexion est obligatoire pour contrôler la séance.");
         }
-        if (idsalle == null || idsalle.trim().isEmpty()) {
-            throw new IllegalArgumentException("La salle est obligatoire.");
+        if (ReglesCinema.estVide(idfilm) || ReglesCinema.estVide(idsalle)) {
+            throw new IllegalArgumentException("Le film et la salle sont obligatoires.");
         }
         if (dateheure_debut == null || dateheure_fin == null) {
             throw new IllegalArgumentException("Les horaires de début et de fin sont obligatoires.");
@@ -54,21 +54,28 @@ public class Seance extends ClassMAPTable {
         if (!dateheure_fin.after(dateheure_debut)) {
             throw new IllegalArgumentException("La fin de la séance doit être après son début.");
         }
+        if (!ReglesCinema.STATUT_PLANIFIEE.equals(statut)
+                && !ReglesCinema.STATUT_OUVERTE.equals(statut)
+                && !ReglesCinema.STATUT_TERMINEE.equals(statut)
+                && !ReglesCinema.STATUT_ANNULEE.equals(statut)) {
+            throw new IllegalArgumentException("Le statut de la séance est invalide.");
+        }
         if (modification && (idseance == null || idseance.trim().isEmpty())) {
             throw new IllegalArgumentException("L'identifiant est obligatoire pour modifier une séance.");
         }
 
         // Sérialise les contrôles et écritures de séances visant la même salle.
-        String verrouSql = "SELECT IDSALLE FROM CINE_SALLE WHERE IDSALLE = ? FOR UPDATE";
+        String verrouSql = "SELECT ACTIF FROM CINE_SALLE WHERE IDSALLE = ? FOR UPDATE";
         try (PreparedStatement ps = connexion.prepareStatement(verrouSql)) {
             ps.setString(1, idsalle);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new Exception("Salle introuvable: " + idsalle);
+                if (rs.getInt("ACTIF") != 1) throw new Exception("La salle sélectionnée est inactive.");
             }
         }
 
         String sql = "SELECT COUNT(*) FROM CINE_SEANCE "
-                + "WHERE IDSALLE = ? AND STATUT <> 'ANNULEE' "
+                + "WHERE IDSALLE = ? AND STATUT <> '" + ReglesCinema.STATUT_ANNULEE + "' "
                 + "AND DATEHEURE_DEBUT < ? AND DATEHEURE_FIN > ?"
                 + (modification ? " AND IDSEANCE <> ?" : "");
         try (PreparedStatement ps = connexion.prepareStatement(sql)) {

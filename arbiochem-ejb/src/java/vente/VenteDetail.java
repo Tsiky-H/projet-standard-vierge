@@ -1,6 +1,9 @@
 package vente;
 
 import bean.ClassMAPTable;
+import cinema.ReglesCinema;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -15,7 +18,7 @@ public class VenteDetail extends ClassMAPTable {
     private double quantite = 1;
     private double prix_unitaire;
     private double montant_ligne;
-    private String statut = "BLOQUEE";
+    private String statut = ReglesCinema.STATUT_BLOQUEE;
     public VenteDetail() { setNomTable("VENTEDETAILS"); }
     @Override public String getTuppleID() { return idventedetails; }
     @Override public String getAttributIDName() { return "idventedetails"; }
@@ -35,25 +38,31 @@ public class VenteDetail extends ClassMAPTable {
         if (designation == null || designation.trim().isEmpty()) {
             throw new IllegalArgumentException("La désignation de la ligne est obligatoire.");
         }
-        if (quantite <= 0 || Double.isNaN(quantite) || Double.isInfinite(quantite)) {
+        if (Double.isNaN(quantite) || Double.isInfinite(quantite)
+                || BigDecimal.valueOf(quantite).setScale(2, RoundingMode.HALF_UP).signum() <= 0) {
             throw new IllegalArgumentException("La quantité de la ligne est invalide.");
         }
-        if (prix_unitaire < 0 || Double.isNaN(prix_unitaire) || Double.isInfinite(prix_unitaire)
-                || montant_ligne < 0 || Double.isNaN(montant_ligne) || Double.isInfinite(montant_ligne)) {
+        BigDecimal prix = ReglesCinema.montantDecimal(
+                prix_unitaire, "Le prix unitaire de la ligne est invalide.");
+        BigDecimal montant = ReglesCinema.montantDecimal(
+                montant_ligne, "Le montant de la ligne est invalide.");
+        BigDecimal quantiteDecimal = BigDecimal.valueOf(quantite).setScale(2, RoundingMode.HALF_UP);
+        if (prix.signum() < 0 || montant.signum() < 0
+                || quantiteDecimal.multiply(prix).setScale(2, RoundingMode.HALF_UP).compareTo(montant) != 0) {
             throw new IllegalArgumentException("Le prix ou le montant de la ligne est invalide.");
         }
-        if (!"BLOQUEE".equals(statut)) {
+        if (!ReglesCinema.STATUT_BLOQUEE.equals(statut)) {
             throw new IllegalArgumentException("Une ligne de vente créée doit avoir le statut BLOQUEE.");
         }
 
-        String sql = "SELECT v.STATUT AS STATUT_VENTE, s.STATUT AS STATUT_SEANCE, "
+        String sql = "SELECT v.STATUT AS STATUT_VENTE, s.STATUT AS STATUT_SEANCE, s.DATEHEURE_DEBUT, "
                 + "p.IDSALLE AS SALLE_PLACE, s.IDSALLE AS SALLE_SEANCE, "
                 + "p.ACTIF AS PLACE_ACTIVE, p.IDCATEGORIEPLACE AS CATEGORIE_PLACE, "
                 + "cp.ACTIF AS CATEGORIE_ACTIVE "
                 + "FROM VENTE v CROSS JOIN CINE_SEANCE s "
                 + "CROSS JOIN CINE_PLACE p CROSS JOIN CINE_CATEGORIE_PLACE cp "
                 + "WHERE v.IDVENTE = ? AND s.IDSEANCE = ? AND p.IDPLACE = ? "
-                + "AND cp.IDCATEGORIEPLACE = ?";
+                + "AND cp.IDCATEGORIEPLACE = ? FOR UPDATE OF p.IDPLACE";
         try (PreparedStatement ps = connexion.prepareStatement(sql)) {
             ps.setString(1, idvente);
             ps.setString(2, idseance);
@@ -61,12 +70,17 @@ public class VenteDetail extends ClassMAPTable {
             ps.setString(4, idcategorieplace);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new Exception("La vente, la séance, la place ou la catégorie est introuvable.");
-                if (!"BROUILLON".equals(rs.getString("STATUT_VENTE"))) {
+                if (!ReglesCinema.STATUT_BROUILLON.equals(rs.getString("STATUT_VENTE"))) {
                     throw new Exception("Une ligne ne peut être ajoutée qu'à une vente brouillon.");
                 }
                 String statutSeance = rs.getString("STATUT_SEANCE");
-                if (!"PLANIFIEE".equals(statutSeance) && !"OUVERTE".equals(statutSeance)) {
+                if (!ReglesCinema.STATUT_PLANIFIEE.equals(statutSeance)
+                        && !ReglesCinema.STATUT_OUVERTE.equals(statutSeance)) {
                     throw new Exception("La séance n'est pas ouverte à la vente.");
+                }
+                if (rs.getTimestamp("DATEHEURE_DEBUT") == null
+                        || !rs.getTimestamp("DATEHEURE_DEBUT").after(new java.sql.Timestamp(System.currentTimeMillis()))) {
+                    throw new Exception("La séance a déjà commencé.");
                 }
                 if (!rs.getString("SALLE_PLACE").equals(rs.getString("SALLE_SEANCE"))) {
                     throw new Exception("La place n'appartient pas à la salle de cette séance.");
@@ -77,6 +91,27 @@ public class VenteDetail extends ClassMAPTable {
                 }
                 if (rs.getInt("CATEGORIE_ACTIVE") != 1) {
                     throw new Exception("La catégorie de la place est inactive.");
+                }
+            }
+        }
+        verifierPlaceDisponible(connexion);
+    }
+
+    private void verifierPlaceDisponible(Connection connexion) throws Exception {
+        String[] requetes = {
+            "SELECT 1 FROM CINE_RESERVATION_PLACE WHERE IDSEANCE = ? AND IDPLACE = ? "
+                + "AND STATUT IN ('" + ReglesCinema.STATUT_BLOQUEE + "', '" + ReglesCinema.STATUT_ACHETEE + "') AND ROWNUM = 1",
+            "SELECT 1 FROM VENTEDETAILS WHERE IDSEANCE = ? AND IDPLACE = ? "
+                + "AND STATUT IN ('" + ReglesCinema.STATUT_BLOQUEE + "', '" + ReglesCinema.STATUT_ACHETEE + "') AND ROWNUM = 1"
+        };
+        for (String sql : requetes) {
+            try (PreparedStatement ps = connexion.prepareStatement(sql)) {
+                ps.setString(1, idseance);
+                ps.setString(2, idplace);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        throw new Exception("La place est déjà bloquée ou vendue pour cette séance.");
+                    }
                 }
             }
         }

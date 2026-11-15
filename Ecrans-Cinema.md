@@ -369,6 +369,7 @@ Parcours:
 
 ```text
 Vente directe
+  -> choisir le client
   -> choisir film/seance
   -> choisir les places sur le plan
   -> verifier le montant

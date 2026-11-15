@@ -73,6 +73,19 @@ docker exec -it cinema-oracle sqlplus -L CINEMA/cinema@//localhost:1521/FREEPDB1
 docker exec -it cinema-oracle sqlplus -L CINEMA/cinema@//localhost:1521/FREEPDB1 @/container-entrypoint-initdb.d/cinema-application-final.sql
 ```
 
+Pour repartir de zéro après une modification des scripts SQL, arrêter d'abord
+l'application, puis lancer le script de nettoyage avant de réexécuter les deux
+scripts ci-dessus :
+
+```bash
+docker exec -it cinema-oracle sqlplus -L CINEMA/cinema@//localhost:1521/FREEPDB1 @/container-entrypoint-initdb.d/cleanup-cinema-schema.sql
+```
+
+Ce nettoyage supprime définitivement les tables et données APJ/Cinéma, ainsi
+que leurs vues, fonctions et séquences, dans le schéma `CINEMA`. Il ne supprime
+pas le conteneur ni son volume Docker. Ne le lancer que pour une réinitialisation
+complète.
+
 Vérifier que le conteneur tourne et que les deux scripts sont terminés sans
 erreur :
 

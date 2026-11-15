@@ -17,6 +17,8 @@ Ce document fixe les règles métier retenues pour la première version. Il déc
 
 ### 1.3 Réservations
 
+- Toute réservation exige un client enregistré; une réservation anonyme n'est
+  pas autorisée. La vente brouillon liée reprend obligatoirement le même client.
 - Une réservation mère peut regrouper plusieurs séances. Chaque détail correspond à une séance et contient les places réservées pour celle-ci.
 - À la création, le système crée dans la même transaction la réservation, ses détails et places bloquées, ainsi qu'une ligne `VENTE` de type `RESERVATION`, liée à cette réservation et au statut `BROUILLON`.
 - La caisse n'est pas encore connue à la création de cette vente brouillon. `VENTE.IDCAISSE` reste nul jusqu'à l'enregistrement du paiement; le service de paiement y affecte alors la caisse active utilisée pour encaisser.
@@ -32,7 +34,9 @@ Ce document fixe les règles métier retenues pour la première version. Il déc
 
 ### 1.4 Vente directe
 
-- Une vente directe permet d'acheter des billets sans réservation préalable; les contraintes d'unicité d'une place par séance s'appliquent aussi.
+- Une vente directe exige un client enregistré et actif; elle permet d'acheter
+  des billets sans réservation préalable. Les contraintes d'unicité d'une
+  place par séance s'appliquent aussi.
 - La ligne `VENTE` brouillon est créée avant l'enregistrement des tentatives de paiement; les paiements valides ou refusés la référencent par `CINE_PAIEMENT.IDVENTE`.
 - Après paiement valide, les places sont bloquées pendant la validation de la facture. Elles ne sont acquises définitivement qu'après validation APJ de la facture.
 - Si la facture est corrigeable, la vente et le blocage des places restent en attente pendant sa correction et sa nouvelle soumission.
@@ -41,6 +45,8 @@ Ce document fixe les règles métier retenues pour la première version. Il déc
 
 ### 1.5 Paiement, facture et caisse
 
+- Chaque facture ou avoir référence obligatoirement le client de la vente
+  d'origine.
 - Le mode de paiement est choisi à la réservation comme mode prévu, puis confirmé ou ajusté lors du paiement réel.
 - Tout paiement cinéma référence une ligne `VENTE` par `IDVENTE`. Pour une réservation, la vente de type `RESERVATION` porte le lien à la réservation dans `VENTE.IDRESERVATION`.
 - Un paiement valide est lié à une facture client. Il déclenche la création de la facture payée et du mouvement d'encaissement.
@@ -135,6 +141,8 @@ Elles ne font pas partie des 19 modèles métier et n'héritent pas de
   dépendances métier Arbiochem/CNAPS inutilisées.
 - `user.CreateObject`, `user.UpdateObject`, `user.ValiderObject` — helpers
   génériques appelés par le service APJ.
+- `cinema.ReglesCinema` — constantes des types/statuts et conversions
+  monétaires partagées par les contrôles métier; ce n'est pas un modèle APJ.
 
 ### 2.6 Points d'extension APJ pour les contrôles métier
 

@@ -1,8 +1,12 @@
 package caisse;
 
 import bean.ClassEtat;
+import cinema.ReglesCinema;
 import java.sql.Connection;
 import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.math.BigDecimal;
 
 /** Mouvement de caisse cinéma, sans dépendances comptables Arbiochem. */
 public class MvtCaisse extends ClassEtat {
@@ -12,7 +16,7 @@ public class MvtCaisse extends ClassEtat {
     private Date daty = new Date(System.currentTimeMillis());
     private String type_mouvement;
     private double montant;
-    private String statut = "ACTIF";
+    private String statut = ReglesCinema.STATUT_MOUVEMENT_ACTIF;
     private String idpaiement;
     private String idfactureclient;
     private String idmvtcaisse_origine;
@@ -41,20 +45,43 @@ public class MvtCaisse extends ClassEtat {
     @Override
     public void controler(Connection connexion) throws Exception {
         super.controler(connexion);
-        if (montant <= 0) {
+        if (daty == null || ReglesCinema.estVide(idcaisse)
+                || ReglesCinema.estVide(idpaiement) || ReglesCinema.estVide(idfactureclient)) {
+            throw new IllegalArgumentException("La date, la caisse, le paiement et la facture sont obligatoires.");
+        }
+        BigDecimal montantValide = ReglesCinema.montantDecimal(
+                montant, "Le montant du mouvement est invalide.");
+        if (montantValide.signum() <= 0) {
             throw new Exception("Le montant du mouvement doit être positif.");
         }
         if (!isEncaissement() && !isDecaissement()) {
             throw new Exception("Le type doit être ENCAISSEMENT ou DECAISSEMENT.");
         }
+        if (!ReglesCinema.STATUT_MOUVEMENT_ACTIF.equals(statut)
+                && !ReglesCinema.STATUT_MOUVEMENT_ANNULE.equals(statut)
+                && !ReglesCinema.STATUT_MOUVEMENT_REMPLACE.equals(statut)) {
+            throw new IllegalArgumentException("Le statut du mouvement de caisse est invalide.");
+        }
+        verifierCaisseActive(connexion);
+    }
+
+    private void verifierCaisseActive(Connection connexion) throws Exception {
+        String sql = "SELECT ACTIF FROM CAISSE WHERE IDCAISSE = ?";
+        try (PreparedStatement ps = connexion.prepareStatement(sql)) {
+            ps.setString(1, idcaisse);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new Exception("La caisse du mouvement est introuvable.");
+                if (rs.getInt(1) != 1) throw new Exception("La caisse du mouvement est inactive.");
+            }
+        }
     }
 
     public boolean isEncaissement() {
-        return "ENCAISSEMENT".equalsIgnoreCase(type_mouvement);
+        return ReglesCinema.TYPE_MOUVEMENT_ENCAISSEMENT.equalsIgnoreCase(type_mouvement);
     }
 
     public boolean isDecaissement() {
-        return "DECAISSEMENT".equalsIgnoreCase(type_mouvement);
+        return ReglesCinema.TYPE_MOUVEMENT_DECAISSEMENT.equalsIgnoreCase(type_mouvement);
     }
 
     public String getIdmvtcaisse() { return idmvtcaisse; }

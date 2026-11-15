@@ -1,6 +1,7 @@
 package paiement;
 
 import bean.ClassMAPTable;
+import cinema.ReglesCinema;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -13,10 +14,9 @@ public class Paiement extends ClassMAPTable {
     private String numero_paiement;
     private Timestamp daty;
     private String idmodepaiement;
-    private String statut = "EN_ATTENTE";
+    private String statut = ReglesCinema.STATUT_EN_ATTENTE;
     private double montant;
     private String reference_externe;
-    private String idreservation;
     private String idvente;
     public Paiement() { setNomTable("CINE_PAIEMENT"); }
     @Override public String getTuppleID() { return idpaiement; }
@@ -40,17 +40,18 @@ public class Paiement extends ClassMAPTable {
         if (idvente == null || idvente.trim().isEmpty()) {
             throw new IllegalArgumentException("Le paiement doit être rattaché à une vente.");
         }
-        if (idreservation != null && !idreservation.trim().isEmpty()) {
-            throw new IllegalArgumentException("Le paiement référence la vente, pas directement la réservation.");
-        }
-        if (montant <= 0 || Double.isNaN(montant) || Double.isInfinite(montant)) {
+        BigDecimal montantDecimal = ReglesCinema.montantDecimal(
+                montant, "Le montant du paiement est invalide.");
+        if (montantDecimal.signum() <= 0) {
             throw new IllegalArgumentException("Le montant du paiement est invalide.");
         }
         if (reference_externe != null && reference_externe.length() > 120) {
             throw new IllegalArgumentException("La référence externe ne peut pas dépasser 120 caractères.");
         }
-        if (!"EN_ATTENTE".equals(statut) && !"VALIDE".equals(statut)
-                && !"REFUSE".equals(statut) && !"ANNULE".equals(statut)) {
+        if (!ReglesCinema.STATUT_EN_ATTENTE.equals(statut)
+                && !ReglesCinema.STATUT_PAIEMENT_VALIDE.equals(statut)
+                && !ReglesCinema.STATUT_PAIEMENT_REFUSE.equals(statut)
+                && !ReglesCinema.STATUT_PAIEMENT_ANNULE.equals(statut)) {
             throw new IllegalArgumentException("Le statut du paiement est invalide.");
         }
 
@@ -70,30 +71,43 @@ public class Paiement extends ClassMAPTable {
     }
 
     private void verifierVenteEtMontant(Connection connexion) throws Exception {
-        String sql = "SELECT v.STATUT, v.MONTANT_TOTAL, v.IDRESERVATION, "
-                + "r.STATUT AS STATUT_RESERVATION, r.DATE_EXPIRATION "
-                + "FROM VENTE v LEFT JOIN CINE_RESERVATION r ON r.IDRESERVATION = v.IDRESERVATION "
-                + "WHERE v.IDVENTE = ?";
+        String sql = "SELECT STATUT, MONTANT_TOTAL, IDRESERVATION "
+                + "FROM VENTE WHERE IDVENTE = ? FOR UPDATE";
         try (PreparedStatement ps = connexion.prepareStatement(sql)) {
             ps.setString(1, idvente);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new Exception("La vente associée au paiement est introuvable.");
-                if (!"BROUILLON".equals(rs.getString("STATUT"))) {
+                if (!ReglesCinema.STATUT_BROUILLON.equals(rs.getString("STATUT"))) {
                     throw new Exception("Le paiement ne peut être enregistré que pour une vente brouillon.");
                 }
-                if (rs.getString("IDRESERVATION") != null) {
-                    if (!"EN_ATTENTE".equals(rs.getString("STATUT_RESERVATION"))) {
-                        throw new Exception("La réservation associée à la vente n'est plus payable.");
-                    }
-                    Timestamp dateExpiration = rs.getTimestamp("DATE_EXPIRATION");
-                    if (dateExpiration == null || daty.after(dateExpiration)) {
-                        throw new Exception("Le paiement de la réservation est tardif.");
-                    }
-                }
+                String idReservation = rs.getString("IDRESERVATION");
                 BigDecimal montantVente = rs.getBigDecimal("MONTANT_TOTAL");
-                BigDecimal montantPaiement = BigDecimal.valueOf(montant).setScale(2, RoundingMode.HALF_UP);
-                if (montantVente == null || montantPaiement.compareTo(montantVente.setScale(2, RoundingMode.HALF_UP)) != 0) {
+                BigDecimal montantPaiement = ReglesCinema.montantDecimal(
+                        montant, "Le montant du paiement est invalide.");
+                if (montantVente == null || montantPaiement.compareTo(
+                        montantVente.setScale(2, RoundingMode.HALF_UP)) != 0) {
                     throw new Exception("Le paiement doit couvrir le montant total de la vente.");
+                }
+                if (!ReglesCinema.estVide(idReservation)) {
+                    verifierReservationPayable(connexion, idReservation);
+                }
+            }
+        }
+    }
+
+    private void verifierReservationPayable(Connection connexion, String idReservation) throws Exception {
+        String sql = "SELECT STATUT, DATE_EXPIRATION FROM CINE_RESERVATION "
+                + "WHERE IDRESERVATION = ? FOR UPDATE";
+        try (PreparedStatement ps = connexion.prepareStatement(sql)) {
+            ps.setString(1, idReservation);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new Exception("La réservation associée à la vente est introuvable.");
+                if (!ReglesCinema.STATUT_EN_ATTENTE.equals(rs.getString("STATUT"))) {
+                    throw new Exception("La réservation associée à la vente n'est plus payable.");
+                }
+                Timestamp dateExpiration = rs.getTimestamp("DATE_EXPIRATION");
+                if (dateExpiration == null || daty.after(dateExpiration)) {
+                    throw new Exception("Le paiement de la réservation est tardif.");
                 }
             }
         }
@@ -113,8 +127,6 @@ public class Paiement extends ClassMAPTable {
     public void setMontant(double v) { montant = v; }
     public String getReference_externe() { return reference_externe; }
     public void setReference_externe(String v) { reference_externe = v; }
-    public String getIdreservation() { return idreservation; }
-    public void setIdreservation(String v) { idreservation = v; }
     public String getIdvente() { return idvente; }
     public void setIdvente(String v) { idvente = v; }
 }

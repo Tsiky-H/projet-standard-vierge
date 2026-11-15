@@ -1,6 +1,7 @@
 package facturation;
 
 import bean.ClassMere;
+import cinema.ReglesCinema;
 import java.sql.Connection;
 import java.sql.Date;
 
@@ -12,7 +13,7 @@ public class FactureClient extends ClassMere {
     private String idfacture_origine;
     private String idclient;
     private Date daty;
-    private String statut = "BROUILLON";
+    private String statut = ReglesCinema.STATUT_BROUILLON;
     private int etat = 1;
     private double montant_ht;
     private double montant_tva;
@@ -34,6 +35,14 @@ public class FactureClient extends ClassMere {
     public void construirePK(Connection connexion) throws Exception {
         preparePk("FAC", "getSeqFactureClient");
         setIdfactureclient(makePK(connexion));
+    }
+
+    @Override
+    public void controler(Connection connexion) throws Exception {
+        super.controler(connexion);
+        if (ReglesCinema.estVide(idclient)) {
+            throw new IllegalArgumentException("Le client est obligatoire pour une facture ou un avoir.");
+        }
     }
 
     public String getIdfactureclient() { return idfactureclient; }

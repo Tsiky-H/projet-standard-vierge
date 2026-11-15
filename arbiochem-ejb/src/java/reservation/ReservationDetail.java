@@ -1,6 +1,8 @@
 package reservation;
 
 import bean.ClassMAPTable;
+import cinema.ReglesCinema;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -11,7 +13,7 @@ public class ReservationDetail extends ClassMAPTable {
     private String idseance;
     private int nb_places;
     private double montant_ligne;
-    private String statut = "EN_ATTENTE";
+    private String statut = ReglesCinema.STATUT_EN_ATTENTE;
     public ReservationDetail() { setNomTable("CINE_RESERVATION_DETAIL"); }
     @Override public String getTuppleID() { return idreservation_detail; }
     @Override public String getAttributIDName() { return "idreservation_detail"; }
@@ -31,10 +33,12 @@ public class ReservationDetail extends ClassMAPTable {
         if (nb_places <= 0) {
             throw new IllegalArgumentException("Le détail doit contenir au moins une place.");
         }
-        if (montant_ligne < 0 || Double.isNaN(montant_ligne) || Double.isInfinite(montant_ligne)) {
+        BigDecimal montant = ReglesCinema.montantDecimal(
+                montant_ligne, "Le montant de la ligne est invalide.");
+        if (montant.signum() < 0) {
             throw new IllegalArgumentException("Le montant de la ligne est invalide.");
         }
-        if (!"EN_ATTENTE".equals(statut)) {
+        if (!ReglesCinema.STATUT_EN_ATTENTE.equals(statut)) {
             throw new IllegalArgumentException("Un détail créé doit avoir le statut EN_ATTENTE.");
         }
 
@@ -43,7 +47,8 @@ public class ReservationDetail extends ClassMAPTable {
                 + "s.STATUT AS STATUT_SEANCE, "
                 + "CASE WHEN s.DATEHEURE_DEBUT > SYSDATE THEN 1 ELSE 0 END AS SEANCE_FUTURE "
                 + "FROM CINE_RESERVATION r CROSS JOIN CINE_SEANCE s "
-                + "WHERE r.IDRESERVATION = ? AND s.IDSEANCE = ?";
+                + "WHERE r.IDRESERVATION = ? AND s.IDSEANCE = ? "
+                + "FOR UPDATE OF r.IDRESERVATION";
         try (PreparedStatement ps = connexion.prepareStatement(sql)) {
             ps.setString(1, idreservation);
             ps.setString(2, idseance);
@@ -51,14 +56,15 @@ public class ReservationDetail extends ClassMAPTable {
                 if (!rs.next()) {
                     throw new Exception("La réservation mère ou la séance est introuvable.");
                 }
-                if (!"EN_ATTENTE".equals(rs.getString("STATUT_RESERVATION"))) {
+                if (!ReglesCinema.STATUT_EN_ATTENTE.equals(rs.getString("STATUT_RESERVATION"))) {
                     throw new Exception("Le détail ne peut être ajouté qu'à une réservation en attente.");
                 }
                 if (rs.getInt("RESERVATION_ACTIVE") != 1) {
                     throw new Exception("La réservation a atteint sa date d'expiration.");
                 }
                 String statutSeance = rs.getString("STATUT_SEANCE");
-                if (!"PLANIFIEE".equals(statutSeance) && !"OUVERTE".equals(statutSeance)) {
+                if (!ReglesCinema.STATUT_PLANIFIEE.equals(statutSeance)
+                        && !ReglesCinema.STATUT_OUVERTE.equals(statutSeance)) {
                     throw new Exception("La séance n'est pas disponible pour une réservation.");
                 }
                 if (rs.getInt("SEANCE_FUTURE") != 1) {

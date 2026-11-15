@@ -1,6 +1,8 @@
 package reservation;
 
 import bean.ClassMAPTable;
+import cinema.ReglesCinema;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -9,12 +11,11 @@ import java.sql.Timestamp;
 public class Reservation extends ClassMAPTable {
 
     private String idreservation;
-    private String numero_reservation;
     private String idclient;
     private String idmodepaiement_prevu;
     private Timestamp date_reservation;
     private Timestamp date_expiration;
-    private String statut = "EN_ATTENTE";
+    private String statut = ReglesCinema.STATUT_EN_ATTENTE;
     private int nb_places_total;
     private double montant_total;
     private String remarque;
@@ -29,19 +30,13 @@ public class Reservation extends ClassMAPTable {
         if (connexion == null) {
             throw new IllegalArgumentException("La connexion est obligatoire pour contrôler la réservation.");
         }
-        if (numero_reservation == null || numero_reservation.trim().isEmpty()) {
-            throw new IllegalArgumentException("Le numéro de réservation est obligatoire.");
-        }
-        if (numero_reservation.length() > 30) {
-            throw new IllegalArgumentException("Le numéro de réservation ne peut pas dépasser 30 caractères.");
-        }
-        if (idclient == null || idclient.trim().isEmpty()) {
-            throw new IllegalArgumentException("Le client est obligatoire pour une réservation.");
-        }
         if (idmodepaiement_prevu == null || idmodepaiement_prevu.trim().isEmpty()) {
             throw new IllegalArgumentException("Le mode de paiement prévu est obligatoire.");
         }
-        verifierReferenceActive(connexion, "CLIENT", "IDCLIENT", idclient, "client");
+        if (ReglesCinema.estVide(idclient)) {
+            throw new IllegalArgumentException("Le client est obligatoire pour une réservation.");
+        }
+        verifierReferenceActive(connexion, "CLIENT", "IDCLIENT", idclient.trim(), "client");
         verifierReferenceActive(connexion, "MODEPAIEMENT", "IDMODEPAIEMENT",
                 idmodepaiement_prevu, "mode de paiement");
 
@@ -55,13 +50,15 @@ public class Reservation extends ClassMAPTable {
         if (date_expiration.before(date_reservation)) {
             throw new IllegalArgumentException("L'expiration ne peut pas précéder la réservation.");
         }
-        if (!"EN_ATTENTE".equals(statut)) {
+        if (!ReglesCinema.STATUT_EN_ATTENTE.equals(statut)) {
             throw new IllegalArgumentException("Une nouvelle réservation doit avoir le statut EN_ATTENTE.");
         }
         if (nb_places_total <= 0) {
             throw new IllegalArgumentException("Une réservation doit contenir au moins une place.");
         }
-        if (montant_total < 0 || Double.isNaN(montant_total) || Double.isInfinite(montant_total)) {
+        BigDecimal montant = ReglesCinema.montantDecimal(
+                montant_total, "Le montant total de la réservation est invalide.");
+        if (montant.signum() < 0) {
             throw new IllegalArgumentException("Le montant total de la réservation est invalide.");
         }
     }
@@ -80,8 +77,6 @@ public class Reservation extends ClassMAPTable {
 
     public String getIdreservation() { return idreservation; }
     public void setIdreservation(String v) { idreservation = v; }
-    public String getNumero_reservation() { return numero_reservation; }
-    public void setNumero_reservation(String v) { numero_reservation = v; }
     public String getIdclient() { return idclient; }
     public void setIdclient(String v) { idclient = v; }
     public String getIdmodepaiement_prevu() { return idmodepaiement_prevu; }
