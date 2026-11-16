@@ -1,106 +1,112 @@
+
 <%@ page pageEncoding="UTF-8" contentType="text/html; charset=UTF-8" %>
-<%@ page import="bean.CGenUtil" %>
+<%@ page import="reservation.ReservationSaisie" %>
 <%@ page import="client.Client" %>
 <%@ page import="cinema.SeanceLib" %>
+<%@ page import="paiement.ModePaiement" %>
+<%@ page import="affichage.PageInsert" %>
+<%@ page import="affichage.Liste" %>
 <%@ page import="user.UserEJB" %>
-<%@ page import="utilitaire.UtilDB" %>
-<%@ page import="java.sql.Connection" %>
-<%@ page import="java.text.SimpleDateFormat" %>
-
-<%!
-    private String echapperHtmlReservation(String valeur) {
-        if (valeur == null) return "";
-        return valeur.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
-    }
-%>
 
 <%
     UserEJB utilisateur = (UserEJB) session.getAttribute("u");
-    String lien = (String) session.getAttribute("lien");
-    Client[] clients = new Client[0];
-    SeanceLib[] seances = new SeanceLib[0];
     String erreurChargement = null;
+    PageInsert pi = null;
 
     if (utilisateur == null) {
         erreurChargement = "La session utilisateur a expiré. Reconnectez-vous.";
     } else {
-        try (Connection connexion = new UtilDB().GetConn()) {
-            clients = (Client[]) CGenUtil.rechercher(new Client(), null, null, connexion,
-                    " AND ACTIF = 1 ORDER BY NOM, PRENOM");
-            seances = (SeanceLib[]) CGenUtil.rechercher(new SeanceLib(), null, null, connexion,
-                    " AND STATUT IN ('PLANIFIEE', 'OUVERTE') AND DATEHEURE_DEBUT > SYSDATE "
-                    + "ORDER BY DATEHEURE_DEBUT, IDSEANCE");
-            if (clients == null) clients = new Client[0];
-            if (seances == null) seances = new SeanceLib[0];
+        try {
+            ReservationSaisie saisie = new ReservationSaisie();
+            pi = new PageInsert(saisie, request, utilisateur);
+
+            Liste[] liste = new Liste[3];
+
+            // Liste des clients
+            Client c = new Client();
+            c.setNomTable("CLIENT");
+            liste[0] = new Liste(
+                "idclient",
+                c,
+                "nom",
+                "idclient",
+                " AND ACTIF = 1"
+            );
+
+            // Liste des modes de paiement
+            ModePaiement m = new ModePaiement();
+            m.setNomTable("MODEPAIEMENT");
+            liste[1] = new Liste(
+                "idmodepaiement_prevu",
+                m,
+                "libelle",
+                "idmodepaiement"
+            );
+
+            // Liste des séances réservables
+            SeanceLib s = new SeanceLib();
+            s.setNomTable("CINE_SEANCE_RESERVABLE");
+            liste[2] = new Liste(
+                "idseance",
+                s,
+                "libelle_seance",
+                "idseance"
+            );
+
+            // Transformer les champs en listes déroulantes
+            pi.getFormu().changerEnChamp(liste);
+
+            // Libellés des champs
+            pi.getFormu().getChamp("idclient").setLibelle("Client");
+            pi.getFormu().getChamp("idseance").setLibelle("Séance");
+            pi.getFormu().getChamp("idmodepaiement_prevu")
+                .setLibelle("Mode de paiement prévu");
+
+            pi.preparerDataFormu();
+
+            // Préparer les index des champs
+            pi.getFormu().makeHtmlInsertTabIndex();
+
         } catch (Exception e) {
-            erreurChargement = "Impossible de charger les clients et les séances disponibles.";
-            application.log("Erreur pendant le chargement du formulaire de réservation", e);
+            erreurChargement = "Impossible de préparer le formulaire de réservation.";
+            application.log("Erreur lors de la préparation de reservation-saisie.jsp", e);
         }
     }
-
-    SimpleDateFormat formatDateHeure = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 %>
 
-<section class="content-header">
-    <h1>Nouvelle réservation</h1>
-</section>
-<section class="content">
-    <% if (erreurChargement != null) { %>
-        <div class="alert alert-danger"><%= echapperHtmlReservation(erreurChargement) %></div>
-    <% } else if (clients.length == 0) { %>
-        <div class="alert alert-warning">Aucun client actif n'est disponible.</div>
-    <% } else if (seances.length == 0) { %>
-        <div class="alert alert-warning">Aucune séance future ouverte à la réservation.</div>
-    <% } else { %>
-        <div class="box box-primary">
-            <div class="box-header with-border">
-                <h3 class="box-title">Choisir le client et une première séance</h3>
+<div class="content-wrapper">
+    <section class="content-header">
+        <h1>Nouvelle réservation</h1>
+    </section>
+
+    <section class="content">
+        <% if (erreurChargement != null) { %>
+            <div class="alert alert-danger">
+                <%= erreurChargement %>
             </div>
-            <form action="<%= echapperHtmlReservation(lien) %>?but=reservation/reservation-places.jsp"
-                  method="post" data-parsley-validate>
-                <div class="box-body">
-                    <div class="form-group">
-                        <label for="idclient">Client</label>
-                        <select class="form-control" id="idclient" name="idclient" required>
-                            <option value="">Sélectionner un client</option>
-                            <% for (Client client : clients) {
-                                if (client == null) continue;
-                                String nomClient = ((client.getNom() == null) ? "" : client.getNom())
-                                        + ((client.getPrenom() == null || client.getPrenom().trim().isEmpty())
-                                                ? "" : " " + client.getPrenom());
-                                if (nomClient.trim().isEmpty()) nomClient = client.getIdclient();
-                            %>
-                                <option value="<%= echapperHtmlReservation(client.getIdclient()) %>">
-                                    <%= echapperHtmlReservation(nomClient) %>
-                                </option>
-                            <% } %>
-                        </select>
+        <% } else { %>
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title">
+                        Choisir le client et une séance
+                    </h3>
+                </div>
+
+                <form action="module.jsp?but=reservation/reservation-places.jsp"
+                      method="post"
+                      data-parsley-validate>
+
+                    <div class="box-body">
+                        <%= pi.getFormu().getHtmlInsert() %>
                     </div>
 
-                    <div class="form-group">
-                        <label for="idseance">Séance</label>
-                        <select class="form-control" id="idseance" name="idseance" required>
-                            <option value="">Sélectionner une séance</option>
-                            <% for (SeanceLib seance : seances) {
-                                if (seance == null) continue;
-                                String libelleSeance = seance.getIdfilmlib() + " — " + seance.getIdsallelib()
-                                        + " — " + formatDateHeure.format(seance.getDateheure_debut());
-                            %>
-                                <option value="<%= echapperHtmlReservation(seance.getIdseance()) %>">
-                                    <%= echapperHtmlReservation(libelleSeance) %>
-                                </option>
-                            <% } %>
-                        </select>
+                    <div class="box-footer">
+                        <button type="submit" class="btn btn-primary">
+                            Choisir les places
+                        </button>
                     </div>
-                </div>
-                <div class="box-footer">
-                    <button type="submit" class="btn btn-primary">Choisir les places</button>
-                </div>
-            </form>
-        </div>
-    <% } %>
-</section>
+                </form>
+            </div>
+        <% } %>
+    </section>
+</div>

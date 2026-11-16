@@ -13,7 +13,7 @@ public class MvtCaisse extends ClassEtat {
 
     private String idmvtcaisse;
     private String idcaisse;
-    private Date daty = new Date(System.currentTimeMillis());
+    private Date daty;
     private String type_mouvement;
     private double montant;
     private String statut = ReglesCinema.STATUT_MOUVEMENT_ACTIF;
@@ -45,9 +45,17 @@ public class MvtCaisse extends ClassEtat {
     @Override
     public void controler(Connection connexion) throws Exception {
         super.controler(connexion);
-        if (daty == null || ReglesCinema.estVide(idcaisse)
-                || ReglesCinema.estVide(idpaiement) || ReglesCinema.estVide(idfactureclient)) {
-            throw new IllegalArgumentException("La date, la caisse, le paiement et la facture sont obligatoires.");
+        if (daty == null) {
+            throw new IllegalArgumentException("La date du mouvement de caisse est obligatoire.");
+        }
+        if (ReglesCinema.estVide(idcaisse)) {
+            throw new IllegalArgumentException("La caisse du mouvement est obligatoire.");
+        }
+        if (ReglesCinema.estVide(idpaiement)) {
+            throw new IllegalArgumentException("Le paiement du mouvement est obligatoire.");
+        }
+        if (ReglesCinema.estVide(idfactureclient)) {
+            throw new IllegalArgumentException("La facture du mouvement est obligatoire.");
         }
         BigDecimal montantValide = ReglesCinema.montantDecimal(
                 montant, "Le montant du mouvement est invalide.");

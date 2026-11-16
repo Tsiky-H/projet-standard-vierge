@@ -46,29 +46,23 @@ respecté lors de leur implémentation.
 
 Fichier de configuration:
 
-- `sql/cinema-menu.sql` (a creer lors de l'implementation du menu)
+- `sql/cinema-application-final.sql` (les entrees sont ajoutees avec les
+  donnees de base du domaine)
 
-Entrees proposees:
+Entrees actuellement disponibles:
 
 ```text
 Cinema
-  Salles
   Categories de places
+  Salles
   Films
-  Seances
-Reservations
-  Nouvelle reservation
-  Liste des reservations
-Ventes
-  Vente directe
-  Liste des ventes
-Facturation
-  Factures clients
-  Avoirs
-Caisse
-  Caisses
-  Mouvements de caisse
+  Clients
+  Reservations
+    Nouvelle reservation
 ```
+
+Les prochaines entrees seront ajoutees uniquement lorsque leur JSP sera
+disponible, afin d'eviter des liens morts dans le menu.
 
 Le menu ouvre toujours une page avec `module.jsp?but=...`. Il ne doit pas
 ouvrir directement une JSP metier hors du layout.
@@ -317,9 +311,8 @@ Nouvelle reservation
   -> afficher le recapitulatif et la date d'expiration
   -> payer
   -> paiement valide ou refuse reference la vente
-  -> paiement valide: creer la facture payee et le mouvement d'encaissement
-  -> attendre la validation APJ de la facture
-  -> apres validation: valider la vente, confirmer la reservation et emettre les billets
+  -> paiement valide: creer la facture payee, le mouvement d'encaissement,
+     valider la vente, confirmer la reservation et emettre les billets
 ```
 
 ### 6.3 Detail des actions
@@ -340,13 +333,10 @@ Nouvelle reservation
 8. `Payer` ouvre `reservation-paiement.jsp`.
 9. `PaiementService` rattache chaque tentative à la vente par `IDVENTE`.
    Après paiement valide, il crée la facture payée, la liaison paiement/facture
-   et le mouvement d'encaissement, renseigne la caisse active utilisée, et la
-   vente reste `BROUILLON`.
-10. La reservation et les places restent en attente pendant la validation
-    manuelle APJ de la facture. Le mouvement de caisse suit son propre
-    workflow et ne bloque pas les billets.
-11. Apres validation de la facture, la vente passe `VALIDEE`, la reservation
-    passe `CONFIRMEE`, les places passent `ACHETEE` et les billets sont emis.
+   et le mouvement d'encaissement, renseigne la caisse active utilisée, valide
+   la vente et confirme la réservation.
+10. Les places bloquées passent à `ACHETEE` et un billet est émis pour chaque
+    place de réservation dans la même transaction.
 12. Si la facture est corrigeable, elle est corrigee et soumise a nouveau;
     la date d'expiration initiale reste inchangee. Une reservation deja payee
     a temps n'expire pas pendant l'attente interne.
@@ -376,9 +366,8 @@ Vente directe
   -> choisir le mode de paiement
   -> creer une vente brouillon avant la tentative de paiement
   -> payer
-  -> le paiement reference la vente; paiement valide: creer facture payee + mouvement d'encaissement
-  -> attendre la validation APJ de la facture, places bloquees
-  -> valider la facture
+  -> le paiement reference la vente; paiement valide: creer facture payee +
+     mouvement d'encaissement et finaliser la vente
   -> emettre les billets
   -> afficher la vente
 ```

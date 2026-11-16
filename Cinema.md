@@ -26,9 +26,9 @@ Ce document fixe les règles métier retenues pour la première version. Il déc
 - Un paiement refusé ou non abouti ne confirme pas la réservation et ne valide pas la vente. Le client peut réessayer jusqu'à l'expiration; les places restent bloquées jusque-là et la vente reste `BROUILLON`.
 - Un paiement reçu après l'expiration est refusé et ne confirme pas la réservation.
 - Si aucun paiement valide n'est reçu à temps, la réservation passe à `EXPIREE`, la vente liée passe à `ANNULEE` et les places sont libérées. Le contrôle du paiement à temps retrouve la réservation en passant par `CINE_PAIEMENT.IDVENTE` puis `VENTE.IDRESERVATION`.
-- Si le paiement est reçu avant l'expiration, la réservation ne doit pas expirer pendant qu'elle attend une décision interne. La vente reste `BROUILLON` et les places restent bloquées jusqu'à la décision sur la facture, même si la date d'expiration initiale est passée.
+- Si le paiement est reçu avant l'expiration, la réservation est confirmée dans la transaction de paiement; elle n'attend pas une validation APJ ultérieure de la facture.
 - Une facture refusée mais corrigeable peut être corrigée puis soumise à nouveau. La date d'expiration initiale ne change pas; elle ne réactive pas l'expiration d'une réservation déjà payée.
-- Après validation APJ de la facture, la réservation passe à `CONFIRMEE`, la vente à `VALIDEE`, les places à `ACHETEE` et les billets sont émis.
+- Après paiement valide, la réservation passe immédiatement à `CONFIRMEE`, la vente à `VALIDEE`, les places à `ACHETEE` et les billets sont émis.
 - Si la facture est définitivement refusée et ne peut pas être corrigée, la réservation et la vente sont annulées immédiatement, les places sont libérées et le paiement reçu est remboursé.
 - Une réservation non payée peut être annulée à la demande du client avant son expiration; la réservation et sa vente brouillon sont annulées et les places libérées immédiatement.
 
@@ -38,8 +38,8 @@ Ce document fixe les règles métier retenues pour la première version. Il déc
   des billets sans réservation préalable. Les contraintes d'unicité d'une
   place par séance s'appliquent aussi.
 - La ligne `VENTE` brouillon est créée avant l'enregistrement des tentatives de paiement; les paiements valides ou refusés la référencent par `CINE_PAIEMENT.IDVENTE`.
-- Après paiement valide, les places sont bloquées pendant la validation de la facture. Elles ne sont acquises définitivement qu'après validation APJ de la facture.
-- Si la facture est corrigeable, la vente et le blocage des places restent en attente pendant sa correction et sa nouvelle soumission.
+- Après paiement valide, les places sont acquises immédiatement et un billet est émis pour chaque place.
+- La facture créée par ce flux est déjà payée; toute correction ou annulation ultérieure suit un flux séparé de gestion de facture.
 - Si la facture est définitivement refusée, la vente est annulée, les places sont libérées et le paiement est remboursé. Aucun billet n'est émis; tout billet déjà créé est invalidé.
 - Les règles de demande et d'approbation de remboursement décrites ci-dessous s'appliquent aussi aux ventes directes.
 
@@ -196,7 +196,7 @@ modèles métier.
 
 1. Le client/agent choisit une séance et les places disponibles; le service les bloque dans une transaction.
 2. Après paiement valide, le système crée la facture payée, la liaison paiement/facture et le mouvement d'encaissement. Les places restent bloquées pendant la validation de la facture.
-3. Après validation APJ de la facture, la vente devient définitive et les billets sont émis.
+3. Après paiement valide, la vente devient définitive et les billets sont émis dans la même transaction.
 4. Si la facture est corrigeable, elle est corrigée et soumise à nouveau; les places restent bloquées.
 5. Si elle est définitivement refusée, la vente est annulée, les places libérées et le paiement remboursé.
 

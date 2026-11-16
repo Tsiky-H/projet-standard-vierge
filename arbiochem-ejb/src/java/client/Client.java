@@ -14,7 +14,7 @@ public class Client extends ClassMAPTable {
     private String email;
     private String telephone;
     private int actif = 1;
-    private Date datycreation = new Date(System.currentTimeMillis());
+    private Date datycreation;
 
     public Client() {
         setNomTable("CLIENT");
@@ -34,6 +34,9 @@ public class Client extends ClassMAPTable {
     public void construirePK(Connection connexion) throws Exception {
         preparePk("CLI", "getSeqClient");
         setIdclient(makePK(connexion));
+        if (datycreation == null) {
+            datycreation = new Date(System.currentTimeMillis());
+        }
         if (codeclient == null || codeclient.trim().isEmpty()) {
             setCodeclient(idclient);
         }

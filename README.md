@@ -29,6 +29,9 @@ renommés ensemble si vous souhaitez un autre nom de projet.
    n'est pas déjà fait.
 2. Vérifier `apj.connection.url`, `apj.connection.user` et
    `apj.connection.password` dans `arbiochem-ejb/src/java/apj.properties`.
+   Le dossier `build-file/lib` doit contenir un seul pilote Oracle moderne
+   compatible avec Java 8 (par exemple `ojdbc8.jar`). Les anciens pilotes
+   `classes12.jar` et `ojdbc6-11.jar` sont exclus automatiquement du build.
 3. Construire le WAR depuis la racine :
 
    ```bash
@@ -73,6 +76,10 @@ docker exec -it cinema-oracle sqlplus -L CINEMA/cinema@//localhost:1521/FREEPDB1
 docker exec -it cinema-oracle sqlplus -L CINEMA/cinema@//localhost:1521/FREEPDB1 @/container-entrypoint-initdb.d/cinema-application-final.sql
 ```
 
+Le socle doit être rejoué après toute modification de `framework-base.sql`.
+Pour une base déjà initialisée, exécuter d'abord le script de nettoyage, puis
+les deux scripts ci-dessus dans le même ordre.
+
 Pour repartir de zéro après une modification des scripts SQL, arrêter d'abord
 l'application, puis lancer le script de nettoyage avant de réexécuter les deux
 scripts ci-dessus :
@@ -115,3 +122,6 @@ dans [Cinema.md](./Cinema.md). Le backlog des étapes d'implémentation est dans
 Le socle de connexion, de navigation APJ et de packaging est en place. Les
 écrans de réservation, de vente, de facturation et de caisse restent à
 implémenter.
+
+ant -f build.xml clean war
+ant -f build.xml deploy

@@ -9,7 +9,7 @@
         String password = request.getParameter("passe");
         String interim = request.getParameter("interim");
         UserEJB user = new UserEJBBean();
-        user.testLogin(login, password, interim, "");
+        user.testLogin(login, password, interim, null);
 
         String langue = request.getParameter("langue");
         if (langue == null || langue.trim().isEmpty()) langue = "fr";
@@ -26,10 +26,8 @@
         String accueil = user.getHomePageUrl();
         if (accueil == null || accueil.trim().isEmpty()) accueil = "accueil.jsp";
         response.sendRedirect("module.jsp?but=" + java.net.URLEncoder.encode(accueil, "UTF-8"));
-        return;
     } catch (Exception e) {
         String message = e.getMessage() == null ? "Échec de connexion" : e.getMessage();
         response.sendRedirect("../index.jsp?erreur=" + java.net.URLEncoder.encode(message, "UTF-8"));
-        return;
     }
 %>

@@ -7,6 +7,7 @@ import reservation.ReservationDetail;
 import reservation.ReservationPlace;
 import user.UserEJB;
 import vente.Vente;
+import vente.VenteDetail;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -20,11 +21,31 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import utilitaire.UtilDB;
+import bean.CGenUtil;
 
 /** Opérations métier liées aux réservations de séances. */
 public class ReservationService {
 
     public ReservationService() { }
+
+    /**
+     * Charge le plan de places disponible via le modèle APJ de la vue métier.
+     * La disponibilité est toujours revérifiée par creerReservation dans sa
+     * transaction, car ce résultat peut devenir obsolète après affichage.
+     */
+    public PlaceSeanceDispo[] listerPlacesDisponibles(String idSeance) throws Exception {
+        if (ReglesCinema.estVide(idSeance)) {
+            throw new IllegalArgumentException("La séance est obligatoire.");
+        }
+        String valeur = idSeance.replace("'", "''");
+        try (Connection connexion = new UtilDB().GetConn()) {
+            Object[] resultats = CGenUtil.rechercher(new PlaceSeanceDispo(), null, null,
+                    connexion, " AND IDSEANCE = '" + valeur + "' AND DISPONIBLE = 1 ORDER BY NUMERO");
+            PlaceSeanceDispo[] places = new PlaceSeanceDispo[resultats.length];
+            System.arraycopy(resultats, 0, places, 0, resultats.length);
+            return places;
+        }
+    }
 
     /** Crée atomiquement une réservation, ses places bloquées, ses détails et sa vente brouillon. */
     public Reservation creerReservation(UserEJB userEJB, Reservation reservation,
@@ -49,7 +70,8 @@ public class ReservationService {
                 Map<String, ReservationDetail> detailsParSeance = creerDetailsReservation(
                         userEJB, connexion, reservation, placesParSeance);
                 creerPlacesBloquees(userEJB, connexion, reservation, placesParSeance, detailsParSeance);
-                creerVenteBrouillonLiee(userEJB, connexion, reservation);
+                Vente vente = creerVenteBrouillonLiee(userEJB, connexion, reservation);
+                creerDetailsVente(userEJB, connexion, vente, placesParSeance);
 
                 connexion.commit();
                 return reservation;
@@ -422,6 +444,29 @@ public class ReservationService {
             throw new Exception("Le framework n'a pas retourné la vente brouillon créée.");
         }
         return (Vente) venteCreee;
+    }
+
+    /** Duplique les places bloquées dans les lignes de la vente brouillon. */
+    private static void creerDetailsVente(UserEJB userEJB, Connection connexion,
+            Vente vente, Map<String, List<PlaceSeanceDispo>> placesParSeance) throws Exception {
+        if (vente == null || ReglesCinema.estVide(vente.getIdvente())) {
+            throw new IllegalArgumentException("La vente doit être créée avant ses lignes.");
+        }
+        for (Map.Entry<String, List<PlaceSeanceDispo>> entree
+                : new TreeMap<>(placesParSeance).entrySet()) {
+            for (PlaceSeanceDispo place : entree.getValue()) {
+                VenteDetail ligne = new VenteDetail();
+                ligne.setIdvente(vente.getIdvente());
+                ligne.setIdseance(entree.getKey());
+                ligne.setIdplace(place.getIdplace());
+                ligne.setIdcategorieplace(place.getIdcategorieplace());
+                ligne.setDesignation("Billet " + place.getIdplace());
+                ligne.setQuantite(1);
+                ligne.setPrix_unitaire(place.getPrix_base());
+                ligne.setMontant_ligne(place.getPrix_base());
+                userEJB.createObject(ligne, connexion);
+            }
+        }
     }
 
 }

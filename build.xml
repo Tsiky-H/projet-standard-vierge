@@ -4,7 +4,7 @@
     <property name="ejb.src" value="${basedir}/arbiochem-ejb/src/java"/>
     <property name="war.src" value="${basedir}/arbiochem-war/src/java"/>
     <property name="war.web" value="${basedir}/arbiochem-war/web"/>
-    <property name="lib.dir" value="${basedir}/lib"/>
+    <property name="lib.dir" value="${basedir}/build-file/lib"/>
     <property name="ejb.classes" value="${build.dir}/ejb"/>
     <property name="war.classes" value="${build.dir}/war/WEB-INF/classes"/>
     <property name="war.dir" value="${build.dir}/war"/>
@@ -17,6 +17,8 @@
     <path id="classpath">
         <fileset dir="${lib.dir}">
             <include name="**/*.jar"/>
+            <exclude name="classes12.jar"/>
+            <exclude name="ojdbc6-11.jar"/>
         </fileset>
     </path>
 
@@ -34,6 +36,9 @@
         <copy todir="${war.dir}/WEB-INF/lib">
             <fileset dir="${lib.dir}">
                 <include name="**/*.jar"/>
+                <exclude name="jboss-client.jar"/>
+                <exclude name="classes12.jar"/>
+                <exclude name="ojdbc6-11.jar"/>
             </fileset>
         </copy>
     </target>
@@ -73,5 +78,5 @@
         <fail unless="env.JBOSS_HOME" message="Définir JBOSS_HOME pour déployer sur WildFly/JBoss."/>
         <copy file="${war.file}" todir="${env.JBOSS_HOME}/standalone/deployments"/>
     </target>
-</project>
 
+</project>
