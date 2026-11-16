@@ -322,6 +322,7 @@ public class ReservationService {
         reservation.setDate_reservation(new Timestamp(System.currentTimeMillis()));
         reservation.setNb_places_total(nombrePlaces);
         reservation.setMontant_total(montantTotal.doubleValue());
+        reservation.setStatut(ReglesCinema.STATUT_EN_ATTENTE);
         userEJB.createObject(reservation, connexion);
         return reservation;
     }
@@ -365,6 +366,7 @@ public class ReservationService {
             detail.setIdseance(idSeance);
             detail.setNb_places(nombrePlaces);
             detail.setMontant_ligne(montantLigne.doubleValue());
+            detail.setStatut(ReglesCinema.STATUT_EN_ATTENTE);
             Object detailCree = userEJB.createObject(detail, connexion);
             if (!(detailCree instanceof ReservationDetail)) {
                 throw new Exception("Le framework n'a pas retourné le détail créé pour la séance " + idSeance + ".");
@@ -416,6 +418,7 @@ public class ReservationService {
                         place.getPrix_base(), "Le tarif de la place " + place.getIdplace() + " est invalide.").doubleValue());
                 reservationPlace.setDate_blocage(dateBlocage);
                 reservationPlace.setDate_expiration(reservation.getDate_expiration());
+                reservationPlace.setStatut(ReglesCinema.STATUT_BLOQUEE);
                 userEJB.createObject(reservationPlace, connexion);
             }
         }
@@ -437,6 +440,7 @@ public class ReservationService {
         vente.setType_vente(ReglesCinema.TYPE_VENTE_RESERVATION);
         vente.setIdclient(reservation.getIdclient());
         vente.setIdreservation(reservation.getIdreservation());
+        vente.setStatut(ReglesCinema.STATUT_BROUILLON);
         vente.setMontant_total(ReglesCinema.montantDecimal(
                 reservation.getMontant_total(), "Le montant de la réservation est invalide.").doubleValue());
         Object venteCreee = userEJB.createObject(vente, connexion);
@@ -464,6 +468,7 @@ public class ReservationService {
                 ligne.setQuantite(1);
                 ligne.setPrix_unitaire(place.getPrix_base());
                 ligne.setMontant_ligne(place.getPrix_base());
+                ligne.setStatut(ReglesCinema.STATUT_BLOQUEE);
                 userEJB.createObject(ligne, connexion);
             }
         }

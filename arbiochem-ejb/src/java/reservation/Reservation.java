@@ -15,7 +15,8 @@ public class Reservation extends ClassMAPTable {
     private String idmodepaiement_prevu;
     private Timestamp date_reservation;
     private Timestamp date_expiration;
-    private String statut = ReglesCinema.STATUT_EN_ATTENTE;
+    // private String statut = ReglesCinema.STATUT_EN_ATTENTE;
+    private String statut;
     private int nb_places_total;
     private double montant_total;
     private String remarque;

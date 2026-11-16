@@ -13,7 +13,8 @@ public class FactureClient extends ClassMere {
     private String idfacture_origine;
     private String idclient;
     private Date daty;
-    private String statut = ReglesCinema.STATUT_BROUILLON;
+    // private String statut = ReglesCinema.STATUT_BROUILLON;
+    private String statut;
     private int etat = 1;
     private double montant_ht;
     private double montant_tva;

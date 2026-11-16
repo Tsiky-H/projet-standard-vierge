@@ -13,7 +13,8 @@ public class Vente extends ClassMAPTable {
     private String idvente;
     private Timestamp daty;
     private String type_vente;
-    private String statut = ReglesCinema.STATUT_BROUILLON;
+    // private String statut = ReglesCinema.STATUT_BROUILLON;
+    private String statut;
     private String idclient;
     private String idcaisse;
     private String idreservation;

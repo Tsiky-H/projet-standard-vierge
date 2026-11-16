@@ -4,8 +4,7 @@
 <%
     try {
         Reservation objet = new Reservation();
-        String[] entetes = {"idreservation", "idclient", "idmodepaiement_prevu",
-                "date_reservation", "date_expiration", "statut", "nb_places_total", "montant_total"};
+        String[] entetes = {"idreservation", "idclient", "idmodepaiement_prevu","date_reservation", "date_expiration", "statut", "nb_places_total", "montant_total"};
         PageRecherche pageRecherche = new PageRecherche(
                 objet, request, entetes, null, entetes.length, entetes, entetes.length);
         pageRecherche.setUtilisateur((user.UserEJB) session.getAttribute("u"));

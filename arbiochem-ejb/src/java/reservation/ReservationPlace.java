@@ -15,7 +15,8 @@ public class ReservationPlace extends ClassMAPTable {
     private String idplace;
     private String idcategorieplace;
     private double prix_unitaire;
-    private String statut = ReglesCinema.STATUT_BLOQUEE;
+    // private String statut = ReglesCinema.STATUT_BLOQUEE;
+    private String statut;
     private Timestamp date_blocage;
     private Timestamp date_expiration;
     private Timestamp date_validation;

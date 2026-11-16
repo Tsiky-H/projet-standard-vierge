@@ -327,3 +327,24 @@ Documentation finale
 - [Ecrans-Cinema.md](./Ecrans-Cinema.md)
 - [sql/framework-base.sql](./sql/framework-base.sql)
 - [sql/cinema-application-final.sql](./sql/cinema-application-final.sql)
+
+------------------------------------------------------------------------------------------------
+
+**Modification/amelioration**(niveau 1-10 du moins important au plus urgent)
+-formulaire de creation pour chaque entite(2)
+  *Pour chaque entite, decider des regles de gestion et contraintes a respecter lors des creations
+
+-bouton de navigation (de la liste vers le formulaire de creation ou inversement, naviguer entre toutes les pages liste,fiche et saisie pour chaque entite)(2)
+  *le clique sur une salle dans la liste aussi redirige vers le plan de la salle
+  *decider des flux de navigation logique a avoir
+
+-permettre de valider la vente par un bouton qu'on trouvera dans la fiche de vente(meme que dans fiche reservation)(4)
+
+-enrichir le formulaire pour faire une reservation: ajouter champs de saisie pour date expiration meme si facultatif,decider si on separera les champs pour creer une seance(film,heure,salle,jour),et dans ce cas ces champs seront interdependants, et on creera ensuite la seance dans le systeme(6)
+  *champs interdependants: si on choisit une salle, la liste de films, jours, heures de diffusions seront mis a jour automatiquement et ainsi de suite a chaque choix
+
+-afficher des valeurs lisibles dans les listes au lieu des identifiants(faire une vue si pas encore fait)(7) 
+
+-permettre l'achat directe de billets(creer affichage aussi)(5)
+
+-une reservation et achat directe devront generes des billets ou etre rattaches a des billets? on doit voir aussi ces billets(5)

@@ -18,7 +18,8 @@ public class VenteDetail extends ClassMAPTable {
     private double quantite = 1;
     private double prix_unitaire;
     private double montant_ligne;
-    private String statut = ReglesCinema.STATUT_BLOQUEE;
+    // private String statut = ReglesCinema.STATUT_BLOQUEE;
+    private String statut;
 
     public VenteDetail() {
         setNomTable("VENTEDETAILS");

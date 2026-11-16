@@ -13,7 +13,8 @@ public class ReservationDetail extends ClassMAPTable {
     private String idseance;
     private int nb_places;
     private double montant_ligne;
-    private String statut = ReglesCinema.STATUT_EN_ATTENTE;
+    // private String statut = ReglesCinema.STATUT_EN_ATTENTE;
+    private String statut;
     public ReservationDetail() { setNomTable("CINE_RESERVATION_DETAIL"); }
     @Override public String getTuppleID() { return idreservation_detail; }
     @Override public String getAttributIDName() { return "idreservation_detail"; }
