@@ -13,7 +13,7 @@ public class Seance extends ClassMAPTable {
     private String idsalle;
     private Timestamp dateheure_debut;
     private Timestamp dateheure_fin;
-    private String statut = ReglesCinema.STATUT_PLANIFIEE;
+    private String statut;
 
     public Seance() {
         setNomTable("CINE_SEANCE");

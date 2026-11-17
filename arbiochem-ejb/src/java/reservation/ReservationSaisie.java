@@ -9,6 +9,7 @@ public class ReservationSaisie extends ClassMAPTable {
     private String idclient;
     private String idseance;
     private String idmodepaiement_prevu;
+    private String delai_expiration_minutes;
 
     public ReservationSaisie() {
         this.setNomTable("CINE_RESERVATION_SAISIE");
@@ -54,5 +55,10 @@ public class ReservationSaisie extends ClassMAPTable {
 
     public void setIdmodepaiement_prevu(String idmodepaiement_prevu) {
         this.idmodepaiement_prevu = idmodepaiement_prevu;
+    }
+
+    public String getDelai_expiration_minutes() { return delai_expiration_minutes; }
+    public void setDelai_expiration_minutes(String delai_expiration_minutes) {
+        this.delai_expiration_minutes = delai_expiration_minutes;
     }
 }

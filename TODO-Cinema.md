@@ -206,6 +206,36 @@ Documentation finale
 
 ## 5. Navigation et ecrans
 
+### A faire prochainement
+
+- [ ] **Creer les formulaires de creation des trois entites cinema**
+  - ID: `creating-film-room-showing-forms`
+  - Entites concernees: `Film`, `Salle` et `Seance`. Creer un formulaire APJ
+    de creation pour chacune, avec les controles metier associes.
+  - **Film:** saisir le code, le titre, la duree en minutes et la
+    classification d'age facultative. Le code est unique, le titre est
+    obligatoire et la duree doit etre strictement positive. Le film est actif
+    par defaut; l'ID est genere par le systeme.
+  - **Salle:** saisir le code et le libelle, puis definir son plan par rangees.
+    Chaque rangee contient un nombre de places libre et correspond a une
+    categorie de places; une categorie peut etre utilisee pour plusieurs
+    rangees. Generer les places avec leur numero, rangee et categorie a partir
+    de cette configuration. Calculer la capacite comme le nombre total de
+    places generees, sans la saisir une seconde fois. Harmoniser la valeur
+    initiale d'`ACTIF`: le SQL a un defaut `1`, mais la classe `Salle` ne
+    l'initialise pas actuellement.
+  - **Seance:** choisir un film actif, une salle active, un jour et une heure
+    de debut. Calculer l'heure de fin a partir de la duree du film. A la
+    creation, initialiser la seance a `OUVERTE`. Refuser une heure de fin non
+    posterieure au debut et tout chevauchement avec une autre seance non
+    annulee dans la meme salle.
+  - Les reservations sont permises uniquement avant le debut de la seance.
+    Apres le debut, les reservations sont fermees, mais l'achat direct reste
+    possible jusqu'a la fin si une place est disponible. Determiner l'etat
+    `PLEINE` a partir des places disponibles plutot que de le stocker comme
+    statut persistant, car les places bloquees peuvent etre liberees.
+  - Depend de: `creating-cinema-menu`, `implementing-reference-services`.
+
 - [ ] **Creer le menu cinema**
   - ID: `creating-cinema-menu`
   - Ajouter les entrees et droits pour les salles, categories, films,
@@ -331,10 +361,10 @@ Documentation finale
 ------------------------------------------------------------------------------------------------
 
 **Modification/amelioration**(niveau 1-10 du moins important au plus urgent)
--formulaire de creation pour chaque entite(2)
+-formulaire de creation pour chaque entite(3)
   *Pour chaque entite, decider des regles de gestion et contraintes a respecter lors des creations
 
--bouton de navigation (de la liste vers le formulaire de creation ou inversement, naviguer entre toutes les pages liste,fiche et saisie pour chaque entite)(2)
+-bouton de navigation (de la liste vers le formulaire de creation ou inversement, naviguer entre toutes les pages liste,fiche et saisie pour chaque entite)(3)
   *le clique sur une salle dans la liste aussi redirige vers le plan de la salle
   *decider des flux de navigation logique a avoir
 
@@ -343,8 +373,10 @@ Documentation finale
 -enrichir le formulaire pour faire une reservation: ajouter champs de saisie pour date expiration meme si facultatif,decider si on separera les champs pour creer une seance(film,heure,salle,jour),et dans ce cas ces champs seront interdependants, et on creera ensuite la seance dans le systeme(6)
   *champs interdependants: si on choisit une salle, la liste de films, jours, heures de diffusions seront mis a jour automatiquement et ainsi de suite a chaque choix
 
--afficher des valeurs lisibles dans les listes au lieu des identifiants(faire une vue si pas encore fait)(7) 
+-[x] afficher des valeurs lisibles dans les listes et fiches pour les réservations, ventes et factures (vues SQL dédiées)(7)
+  *Vues: CINE_RESERVATION_LIB, CINE_VENTE_LIB et CINE_FACTURECLIENT_LIB; modèles de lecture: ReservationLib, VenteLib et FactureClientLib.
 
 -permettre l'achat directe de billets(creer affichage aussi)(5)
 
--une reservation et achat directe devront generes des billets ou etre rattaches a des billets? on doit voir aussi ces billets(5)
+-une reservation et achat directe devront generes des billets ou etre rattaches a des billets? on doit voir aussi ces billets(2)
+

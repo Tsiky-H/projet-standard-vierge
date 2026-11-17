@@ -1,10 +1,10 @@
 <%@ page pageEncoding="UTF-8" contentType="text/html; charset=UTF-8" %>
 <%@ page import="affichage.PageConsulte" %>
-<%@ page import="facturation.FactureClient" %>
+<%@ page import="facturation.FactureClientLib" %>
 <%@ page import="user.UserEJB" %>
 <%
     try {
-        FactureClient facture = new FactureClient();
+        FactureClientLib facture = new FactureClientLib();
         facture.setStatut(null);
         PageConsulte pageConsulte = new PageConsulte(facture, request,
                 (UserEJB) session.getAttribute("u"));
@@ -12,6 +12,10 @@
         if (pageConsulte.getBase() == null) {
             throw new Exception("La facture demandée est introuvable.");
         }
+        pageConsulte.getChampByName("idclient").setVisible(false);
+        pageConsulte.getChampByName("idfacture_origine").setVisible(false);
+        pageConsulte.getChampByName("idclientlib").setLibelle("Client");
+        pageConsulte.getChampByName("idfacture_originelib").setLibelle("Facture d'origine");
 %>
 <div class="content-wrapper">
     <h1 class="box-title"><%= pageConsulte.getTitre() %></h1>

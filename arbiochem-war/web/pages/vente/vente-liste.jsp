@@ -1,11 +1,11 @@
 <%@ page pageEncoding="UTF-8" contentType="text/html; charset=UTF-8" %>
 <%@ page import="affichage.PageRecherche" %>
-<%@ page import="vente.Vente" %>
+<%@ page import="vente.VenteLib" %>
 <%
     try {
-        Vente objet = new Vente();
-        String[] entetes = {"idvente", "daty", "type_vente", "statut", "idclient",
-                "idreservation", "idfactureclient", "montant_total"};
+        VenteLib objet = new VenteLib();
+        String[] entetes = {"idvente", "daty", "type_vente", "statut", "idclientlib", "idcaisselib",
+                "idreservationlib", "idfactureclientlib", "montant_total"};
         PageRecherche pageRecherche = new PageRecherche(
                 objet, request, entetes, null, entetes.length, entetes, entetes.length);
         pageRecherche.setUtilisateur((user.UserEJB) session.getAttribute("u"));
@@ -14,9 +14,12 @@
         pageRecherche.creerObjetPage(entetes, null);
         pageRecherche.getFormu().getChamp("idvente").setLibelle("Vente");
         pageRecherche.getFormu().getChamp("statut").setLibelle("Statut");
-        pageRecherche.getFormu().getChamp("idreservation").setLibelle("Réservation");
+        pageRecherche.getFormu().getChamp("idclientlib").setLibelle("Client");
+        pageRecherche.getFormu().getChamp("idcaisselib").setLibelle("Caisse");
+        pageRecherche.getFormu().getChamp("idreservationlib").setLibelle("Réservation");
+        pageRecherche.getFormu().getChamp("idfactureclientlib").setLibelle("Facture");
         pageRecherche.getTableau().setLibelleAffiche(new String[]{
-                "Vente", "Date", "Type", "Statut", "Client", "Réservation",
+                "Vente", "Date", "Type", "Statut", "Client", "Caisse", "Réservation",
                 "Facture", "Montant"});
         pageRecherche.getTableau().setLien(new String[]{pageRecherche.getLien() + "?but=vente/vente-fiche.jsp"});
         pageRecherche.getTableau().setColonneLien(new String[]{"idvente"});

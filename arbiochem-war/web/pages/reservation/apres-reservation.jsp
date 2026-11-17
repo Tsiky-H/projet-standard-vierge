@@ -19,9 +19,6 @@
 %>
 
 <%
-    // Délai laissé au client pour payer (plafonné au début de la séance).
-    final int DELAI_EXPIRATION_MINUTES = 30;
-
     UserEJB utilisateur = (UserEJB) session.getAttribute("u");
 
     // Page de destination : on n'accepte qu'un chemin .jsp simple.
@@ -39,6 +36,7 @@
         String idClient = request.getParameter("idclient");
         String idSeance = request.getParameter("idseance");
         String idMode = request.getParameter("idmodepaiement_prevu");
+        String delaiExpirationMinutes = request.getParameter("delai_expiration_minutes");
         String[] choisies = request.getParameterValues("places");
 
         if (idClient == null || idClient.trim().isEmpty()) {
@@ -56,8 +54,18 @@
         if (idMode != null && !idMode.trim().isEmpty()) {
             reservation.setIdmodepaiement_prevu(idMode.trim());
         }
-        reservation.setDate_expiration(
-                PlanSalleService.calculerEcheance(idSeance, DELAI_EXPIRATION_MINUTES));
+        if (delaiExpirationMinutes != null && !delaiExpirationMinutes.trim().isEmpty()) {
+            int minutes;
+            try {
+                minutes = Integer.parseInt(delaiExpirationMinutes.trim());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Le délai d'expiration doit être un nombre entier de minutes.");
+            }
+            if (minutes <= 0) {
+                throw new IllegalArgumentException("Le délai d'expiration doit être supérieur à zéro minute.");
+            }
+            reservation.setDate_expiration(PlanSalleService.calculerEcheance(idSeance, minutes));
+        }
 
         List<PlaceSeanceDispo> selection = new ArrayList<PlaceSeanceDispo>();
         for (String idPlace : new LinkedHashSet<String>(Arrays.asList(choisies))) {

@@ -125,3 +125,18 @@ implémenter.
 
 ant -f build.xml clean war
 ant -f build.xml deploy
+
+changer heure oracle: 
+docker stop cinema-oracle
+docker rm cinema-oracle
+
+docker run -d \
+  --name cinema-oracle \
+  -p 1521:1521 \
+  -e TZ=Indian/Antananarivo \
+  -e ORACLE_PASSWORD='cinema' \
+  -e APP_USER=CINEMA \
+  -e APP_USER_PASSWORD='cinema' \
+  -v cinema-oracle-data:/opt/oracle/oradata \
+  -v "$(pwd)/sql:/container-entrypoint-initdb.d:ro" \
+  gvenzl/oracle-free:23.26.3

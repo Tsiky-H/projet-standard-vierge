@@ -57,16 +57,30 @@ Les noms de classes `Lib` et les alias proposés sont des conventions. Les propr
 - `SOURCE_BLOCAGE` vaut `RESERVATION`, `VENTE` ou `NULL`. `STATUT_OCCUPATION` expose `BLOQUEE`, `ACHETEE`, `DISPONIBLE` ou `INDISPONIBLE`; `DISPONIBLE` vaut 1 ou 0.
 - La vue ne garantit pas la réservation : le service doit revérifier et verrouiller en transaction au moment de l’écriture.
 
-## Vues suivantes — entêtes et détails distincts
+## Vues d'entête réalisées
+
+Les trois vues suivantes sont ajoutées au script final. Leurs modèles de
+lecture héritent des entités écrites sur les tables et ne sont utilisés que
+par les listes et fiches APJ.
+
+| Vue | Modèle de lecture | Libellés joints |
+|---|---|---|
+| `CINE_RESERVATION_LIB` | `reservation.ReservationLib` | Client, mode de paiement prévu et séances (films avec horaires concaténés). |
+| `CINE_VENTE_LIB` | `vente.VenteLib` | Client, caisse, réservation et numéro de facture. |
+| `CINE_FACTURECLIENT_LIB` | `facturation.FactureClientLib` | Client et numéro de facture d'origine pour un avoir. |
+
+Les colonnes sources `IDCLIENT`, `IDCAISSE`, `IDRESERVATION`,
+`IDFACTURECLIENT` et `IDFACTURE_ORIGINE` restent disponibles au modèle; les
+pages de liste et fiche affichent leurs colonnes `...LIB` à la place des clés
+étrangères. La clé primaire reste affichée comme référence cliquable.
+
+## Vues suivantes — détails distincts
 
 | Vue | Grain et utilisation |
 |---|---|
-| `CINE_RESERVATION_LIB` | Une ligne par réservation; liste/fiche avec client, mode prévu, dates, statut, quantité totale et montant. |
 | `CINE_RESERVATION_DETAIL_LIB` | Une ligne par détail de réservation/séance; film, salle, horaires, quantité et montant de ligne. |
 | `CINE_RESERVATION_PLACE_LIB` | Une ligne par place réservée; place, catégorie, prix figé, statut et expiration. |
-| `CINE_VENTE_LIB` | Une ligne par vente; type, client, caisse, réservation et facture liées, montant et statut. |
 | `CINE_VENTEDETAIL_LIB` | Une ligne par détail; séance, film, salle, place, catégorie, prix figé et statut. |
-| `CINE_FACTURECLIENT_LIB` | Une ligne par facture ou avoir; client, document d’origine, statut métier `STATUT`, état APJ `ETAT` et montants. |
 | `CINE_FACTURECLIENT_LIGNE_LIB` | Une ligne par ligne de facture/avoir; désignation, quantité, prix, TVA, montant et source/origine. |
 | `CINE_PAIEMENT_LIB` | Une ligne par paiement; mode, statut, montant, référence et réservation ou vente source. |
 | `CINE_LIAISONPAIEMENT_LIB` | Une ligne par affectation paiement/facture avec montant affecté. |

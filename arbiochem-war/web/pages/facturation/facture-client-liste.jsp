@@ -1,10 +1,10 @@
 <%@ page pageEncoding="UTF-8" contentType="text/html; charset=UTF-8" %>
 <%@ page import="affichage.PageRecherche" %>
-<%@ page import="facturation.FactureClient" %>
+<%@ page import="facturation.FactureClientLib" %>
 <%
     try {
-        FactureClient objet = new FactureClient();
-        String[] entetes = {"idfactureclient", "numero_facture", "type_document", "idclient",
+        FactureClientLib objet = new FactureClientLib();
+        String[] entetes = {"idfactureclient", "numero_facture", "type_document", "idfacture_originelib", "idclientlib",
                 "daty", "statut", "montant_ht", "montant_tva", "montant_ttc"};
         PageRecherche pageRecherche = new PageRecherche(
                 objet, request, entetes, null, entetes.length, entetes, entetes.length);
@@ -13,10 +13,11 @@
         pageRecherche.setApres("facturation/facture-client-liste.jsp");
         pageRecherche.creerObjetPage(entetes, null);
         pageRecherche.getFormu().getChamp("numero_facture").setLibelle("N° facture");
-        pageRecherche.getFormu().getChamp("idclient").setLibelle("Client");
+        pageRecherche.getFormu().getChamp("idclientlib").setLibelle("Client");
+        pageRecherche.getFormu().getChamp("idfacture_originelib").setLibelle("Facture d'origine");
         pageRecherche.getFormu().getChamp("statut").setLibelle("Statut");
         pageRecherche.getTableau().setLibelleAffiche(new String[]{
-                "Facture", "N° facture", "Type", "Client", "Date", "Statut",
+                "Référence", "N° facture", "Type", "Facture d'origine", "Client", "Date", "Statut",
                 "Montant HT", "TVA", "Montant TTC"});
         pageRecherche.getTableau().setLien(new String[]{pageRecherche.getLien() + "?but=facturation/facture-client-fiche.jsp"});
         pageRecherche.getTableau().setColonneLien(new String[]{"idfactureclient"});

@@ -1,20 +1,25 @@
 <%@ page pageEncoding="UTF-8" contentType="text/html; charset=UTF-8" %>
 <%@ page import="affichage.PageConsulte" %>
-<%@ page import="reservation.Reservation" %>
+<%@ page import="reservation.ReservationLib" %>
 <%@ page import="user.UserEJB" %>
 <%
     try {
         UserEJB utilisateur = (UserEJB) session.getAttribute("u");
-        Reservation reservation = new Reservation();
+        ReservationLib reservation = new ReservationLib();
         reservation.setStatut(null);
         PageConsulte pageConsulte = new PageConsulte(reservation, request, utilisateur);
         pageConsulte.setTitre("Fiche réservation");
-        Reservation reservationChargee = (Reservation) pageConsulte.getBase();
+        ReservationLib reservationChargee = (ReservationLib) pageConsulte.getBase();
         if (reservationChargee == null) {
             throw new Exception("La réservation demandée est introuvable.");
         }
         String id = reservationChargee.getIdreservation();
         String lien = (String) session.getAttribute("lien");
+        pageConsulte.getChampByName("idclient").setVisible(false);
+        pageConsulte.getChampByName("idmodepaiement_prevu").setVisible(false);
+        pageConsulte.getChampByName("idclientlib").setLibelle("Client");
+        pageConsulte.getChampByName("idmodepaiement_prevulib").setLibelle("Mode de paiement prévu");
+        pageConsulte.getChampByName("seanceslib").setLibelle("Séances");
 %>
 <div class="content-wrapper">
     <h1 class="box-title">

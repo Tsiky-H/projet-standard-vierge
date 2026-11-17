@@ -809,7 +809,8 @@ SELECT
     CAST(NULL AS VARCHAR2(50)) AS IDSAISIE,
     CAST(NULL AS VARCHAR2(20)) AS IDCLIENT,
     CAST(NULL AS VARCHAR2(20)) AS IDSEANCE,
-    CAST(NULL AS VARCHAR2(20)) AS IDMODEPAIEMENT_PREVU
+    CAST(NULL AS VARCHAR2(20)) AS IDMODEPAIEMENT_PREVU,
+    CAST(NULL AS VARCHAR2(10)) AS DELAI_EXPIRATION_MINUTES
 FROM DUAL
 WHERE 1 = 0;
 
@@ -977,7 +978,80 @@ LEFT JOIN VENTEDETAILS vd
    AND vd.IDPLACE = p.IDPLACE
    AND vd.STATUT IN ('BLOQUEE', 'ACHETEE');
 
+
+
 -- ============================================================================
+-- 8.9 Reservations avec les libelles de leurs references
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE VIEW CINE_RESERVATION_LIB AS
+SELECT
+    r.IDRESERVATION,
+    r.IDCLIENT,
+    TRIM(c.NOM || ' ' || NVL(c.PRENOM, '')) AS IDCLIENTLIB,
+    r.IDMODEPAIEMENT_PREVU,
+    mp.LIBELLE AS IDMODEPAIEMENT_PREVULIB,
+    r.DATE_RESERVATION,
+    r.DATE_EXPIRATION,
+    r.STATUT,
+    r.NB_PLACES_TOTAL,
+    r.MONTANT_TOTAL,
+    r.REMARQUE,
+    seances.SEANCESLIB
+FROM CINE_RESERVATION r
+JOIN CLIENT c ON c.IDCLIENT = r.IDCLIENT
+LEFT JOIN MODEPAIEMENT mp ON mp.IDMODEPAIEMENT = r.IDMODEPAIEMENT_PREVU
+LEFT JOIN (
+    SELECT rd.IDRESERVATION,
+           LISTAGG(f.TITRE || ' - ' || TO_CHAR(s.DATEHEURE_DEBUT, 'DD/MM/YYYY HH24:MI'), ', ')
+               WITHIN GROUP (ORDER BY s.DATEHEURE_DEBUT, s.IDSEANCE) AS SEANCESLIB
+    FROM CINE_RESERVATION_DETAIL rd
+    JOIN CINE_SEANCE s ON s.IDSEANCE = rd.IDSEANCE
+    JOIN CINE_FILM f ON f.IDFILM = s.IDFILM
+    GROUP BY rd.IDRESERVATION
+) seances ON seances.IDRESERVATION = r.IDRESERVATION;
+
+-- 8.10 Ventes avec les libelles du client, de la reservation et de la facture
+CREATE OR REPLACE VIEW CINE_VENTE_LIB AS
+SELECT
+    v.IDVENTE,
+    v.DATY,
+    v.TYPE_VENTE,
+    v.STATUT,
+    v.IDCLIENT,
+    TRIM(c.NOM || ' ' || NVL(c.PRENOM, '')) AS IDCLIENTLIB,
+    v.IDCAISSE,
+    ca.LIBELLE AS IDCAISSELIB,
+    v.IDRESERVATION,
+    r.IDRESERVATION AS IDRESERVATIONLIB,
+    v.IDFACTURECLIENT,
+    f.NUMERO_FACTURE AS IDFACTURECLIENTLIB,
+    v.MONTANT_TOTAL
+FROM VENTE v
+JOIN CLIENT c ON c.IDCLIENT = v.IDCLIENT
+LEFT JOIN CAISSE ca ON ca.IDCAISSE = v.IDCAISSE
+LEFT JOIN CINE_RESERVATION r ON r.IDRESERVATION = v.IDRESERVATION
+LEFT JOIN FACTURECLIENT f ON f.IDFACTURECLIENT = v.IDFACTURECLIENT;
+
+-- 8.11 Factures avec les libelles du client et de la facture d'origine
+CREATE OR REPLACE VIEW CINE_FACTURECLIENT_LIB AS
+SELECT
+    f.IDFACTURECLIENT,
+    f.NUMERO_FACTURE,
+    f.TYPE_DOCUMENT,
+    f.IDFACTURE_ORIGINE,
+    origine.NUMERO_FACTURE AS IDFACTURE_ORIGINELIB,
+    f.IDCLIENT,
+    TRIM(c.NOM || ' ' || NVL(c.PRENOM, '')) AS IDCLIENTLIB,
+    f.DATY,
+    f.STATUT,
+    f.ETAT,
+    f.MONTANT_HT,
+    f.MONTANT_TVA,
+    f.MONTANT_TTC
+FROM FACTURECLIENT f
+JOIN CLIENT c ON c.IDCLIENT = f.IDCLIENT
+LEFT JOIN FACTURECLIENT origine ON origine.IDFACTURECLIENT = f.IDFACTURE_ORIGINE;
+
 -- 9) Notes d'implementation applicative
 -- ============================================================================
 -- 1) Le controle de chevauchement des seances d'une meme salle doit etre fait
@@ -990,3 +1064,5 @@ LEFT JOIN VENTEDETAILS vd
 --    validee par APJ. La validation du mouvement de caisse est independante.
 -- 4) Les demandes de remboursement sont controlees par billet et doivent etre
 --    deposees avant le debut de la seance concernee.
+
+

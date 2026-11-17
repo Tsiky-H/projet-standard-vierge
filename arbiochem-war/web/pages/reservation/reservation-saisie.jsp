@@ -1,4 +1,3 @@
-
 <%@ page pageEncoding="UTF-8" contentType="text/html; charset=UTF-8" %>
 <%@ page import="reservation.ReservationSaisie" %>
 <%@ page import="client.Client" %>
@@ -20,53 +19,29 @@
             ReservationSaisie saisie = new ReservationSaisie();
             pi = new PageInsert(saisie, request, utilisateur);
 
-            Liste[] liste = new Liste[3];
+            SeanceLib seancesReservables = new SeanceLib();
+            seancesReservables.setNomTable("CINE_SEANCE_RESERVABLE");
+            Liste clientListe = new Liste("idclient", new Client(), "nom", "idclient", " AND ACTIF = 1");
+            Liste seanceListe = new Liste("idseance", seancesReservables, "libelle_seance", "idseance");
+            Liste modeListe = new Liste("idmodepaiement_prevu", new ModePaiement(), "libelle", "idmodepaiement");
+            clientListe.setEstMultiple(false);
+            seanceListe.setEstMultiple(false);
+            modeListe.setEstMultiple(false);
+            pi.getFormu().changerEnChamp(new Liste[] { clientListe, seanceListe, modeListe });
 
-            // Liste des clients
-            Client c = new Client();
-            c.setNomTable("CLIENT");
-            liste[0] = new Liste(
-                "idclient",
-                c,
-                "nom",
-                "idclient",
-                " AND ACTIF = 1"
-            );
-
-            // Liste des modes de paiement
-            ModePaiement m = new ModePaiement();
-            m.setNomTable("MODEPAIEMENT");
-            liste[1] = new Liste(
-                "idmodepaiement_prevu",
-                m,
-                "libelle",
-                "idmodepaiement"
-            );
-
-            // Liste des séances réservables
-            SeanceLib s = new SeanceLib();
-            s.setNomTable("CINE_SEANCE_RESERVABLE");
-            liste[2] = new Liste(
-                "idseance",
-                s,
-                "libelle_seance",
-                "idseance"
-            );
-
-            // Transformer les champs en listes déroulantes
-            pi.getFormu().changerEnChamp(liste);
-
-            // Libellés des champs
             pi.getFormu().getChamp("idclient").setLibelle("Client");
             pi.getFormu().getChamp("idseance").setLibelle("Séance");
-            pi.getFormu().getChamp("idmodepaiement_prevu")
-                .setLibelle("Mode de paiement prévu");
+            pi.getFormu().getChamp("idmodepaiement_prevu").setLibelle("Mode de paiement prévu");
+            pi.getFormu().getChamp("delai_expiration_minutes")
+                    .setLibelle("Délai avant expiration (minutes ; vide = début de séance)");
+            pi.getFormu().getChamp("delai_expiration_minutes").setType("number");
+            pi.getFormu().getChamp("delai_expiration_minutes").setAutre("min=\"1\" step=\"1\"");
+            pi.getFormu().getChamp("idclient").setAutre("required");
+            pi.getFormu().getChamp("idseance").setAutre("required");
+            pi.getFormu().getChamp("idmodepaiement_prevu").setAutre("required");
 
             pi.preparerDataFormu();
-
-            // Préparer les index des champs
             pi.getFormu().makeHtmlInsertTabIndex();
-
         } catch (Exception e) {
             erreurChargement = "Impossible de préparer le formulaire de réservation.";
             application.log("Erreur lors de la préparation de reservation-saisie.jsp", e);
@@ -75,35 +50,17 @@
 %>
 
 <div class="content-wrapper">
-    <section class="content-header">
-        <h1>Nouvelle réservation</h1>
-    </section>
-
+    <section class="content-header"><h1>Nouvelle réservation</h1></section>
     <section class="content">
         <% if (erreurChargement != null) { %>
-            <div class="alert alert-danger">
-                <%= erreurChargement %>
-            </div>
+            <div class="alert alert-danger"><%= erreurChargement %></div>
         <% } else { %>
             <div class="box box-primary">
-                <div class="box-header with-border">
-                    <h3 class="box-title">
-                        Choisir le client et une séance
-                    </h3>
-                </div>
-
-                <form action="module.jsp?but=reservation/reservation-places.jsp"
-                      method="post"
-                      data-parsley-validate>
-
-                    <div class="box-body">
-                        <%= pi.getFormu().getHtmlInsert() %>
-                    </div>
-
+                <div class="box-header with-border"><h3 class="box-title">Choisir le client et la séance</h3></div>
+                <form action="module.jsp?but=reservation/reservation-places.jsp" method="post" data-parsley-validate>
+                    <div class="box-body"><%= pi.getFormu().getHtmlInsert() %></div>
                     <div class="box-footer">
-                        <button type="submit" class="btn btn-primary">
-                            Choisir les places
-                        </button>
+                        <button type="submit" class="btn btn-primary">Choisir les places</button>
                     </div>
                 </form>
             </div>

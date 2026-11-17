@@ -1,10 +1,11 @@
 <%@ page pageEncoding="UTF-8" contentType="text/html; charset=UTF-8" %>
 <%@ page import="affichage.PageRecherche" %>
-<%@ page import="reservation.Reservation" %>
+<%@ page import="reservation.ReservationLib" %>
 <%
     try {
-        Reservation objet = new Reservation();
-        String[] entetes = {"idreservation", "idclient", "idmodepaiement_prevu","date_reservation", "date_expiration", "statut", "nb_places_total", "montant_total"};
+        ReservationLib objet = new ReservationLib();
+        String[] entetes = {"idreservation", "idclientlib", "idmodepaiement_prevulib", "seanceslib",
+                "date_reservation", "date_expiration", "statut", "nb_places_total", "montant_total"};
         PageRecherche pageRecherche = new PageRecherche(
                 objet, request, entetes, null, entetes.length, entetes, entetes.length);
         pageRecherche.setUtilisateur((user.UserEJB) session.getAttribute("u"));
@@ -12,10 +13,12 @@
         pageRecherche.setApres("reservation/reservation-liste.jsp");
         pageRecherche.creerObjetPage(entetes, null);
         pageRecherche.getFormu().getChamp("idreservation").setLibelle("Réservation");
-        pageRecherche.getFormu().getChamp("idclient").setLibelle("Client");
+        pageRecherche.getFormu().getChamp("idclientlib").setLibelle("Client");
+        pageRecherche.getFormu().getChamp("idmodepaiement_prevulib").setLibelle("Mode de paiement prévu");
+        pageRecherche.getFormu().getChamp("seanceslib").setLibelle("Séances");
         pageRecherche.getFormu().getChamp("statut").setLibelle("Statut");
         pageRecherche.getTableau().setLibelleAffiche(new String[]{
-                "Réservation", "Client", "Mode de paiement prévu", "Date", "Expiration",
+                "Réservation", "Client", "Mode de paiement prévu", "Séances", "Date", "Expiration",
                 "Statut", "Places", "Montant"});
         pageRecherche.getTableau().setLien(new String[]{pageRecherche.getLien() + "?but=reservation/reservation-fiche.jsp"});
         pageRecherche.getTableau().setColonneLien(new String[]{"idreservation"});

@@ -23,6 +23,7 @@
     String idClient = request.getParameter("idclient");
     String idSeance = request.getParameter("idseance");
     String idMode = request.getParameter("idmodepaiement_prevu");
+    String delaiExpirationMinutes = request.getParameter("delai_expiration_minutes");
 
     String erreur = null;
     PlaceSeanceDispo[] places = new PlaceSeanceDispo[0];
@@ -118,6 +119,7 @@
                     <input type="hidden" name="idclient" value="<%= h(idClient) %>">
                     <input type="hidden" name="idseance" value="<%= h(idSeance) %>">
                     <input type="hidden" name="idmodepaiement_prevu" value="<%= h(idMode) %>">
+                    <input type="hidden" name="delai_expiration_minutes" value="<%= h(delaiExpirationMinutes) %>">
                     <input type="hidden" name="bute" value="reservation/reservation-liste.jsp">
 
                     <div class="box-body">
