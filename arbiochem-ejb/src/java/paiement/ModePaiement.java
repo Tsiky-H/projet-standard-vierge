@@ -7,7 +7,6 @@ import java.sql.Connection;
 public class ModePaiement extends ClassMAPTable {
 
     private String idmodepaiement;
-    private String code;
     private String libelle;
     private int actif = 1;
 
@@ -27,7 +26,7 @@ public class ModePaiement extends ClassMAPTable {
 
     @Override
     public void construirePK(Connection connexion) throws Exception {
-        preparePk("MDP", "getSeqModePaiement");
+        preparePk("MP", "getSeqModePaiement");
         setIdmodepaiement(makePK(connexion));
     }
 
@@ -38,8 +37,6 @@ public class ModePaiement extends ClassMAPTable {
 
     public String getIdmodepaiement() { return idmodepaiement; }
     public void setIdmodepaiement(String idmodepaiement) { this.idmodepaiement = idmodepaiement; }
-    public String getCode() { return code; }
-    public void setCode(String code) { this.code = code; }
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
     public int getActif() { return actif; }

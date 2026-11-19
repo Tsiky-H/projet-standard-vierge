@@ -6,7 +6,6 @@ import java.sql.Connection;
 public class CategoriePlace extends ClassMAPTable {
 
     private String idcategorieplace;
-    private String code;
     private String libelle;
     private double prix_base;
     private int actif = 1;
@@ -29,8 +28,6 @@ public class CategoriePlace extends ClassMAPTable {
 
     public String getIdcategorieplace() { return idcategorieplace; }
     public void setIdcategorieplace(String idcategorieplace) { this.idcategorieplace = idcategorieplace; }
-    public String getCode() { return code; }
-    public void setCode(String code) { this.code = code; }
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
     public double getPrix_base() { return prix_base; }

@@ -13,7 +13,7 @@ public class Seance extends ClassMAPTable {
     private String idsalle;
     private Timestamp dateheure_debut;
     private Timestamp dateheure_fin;
-    private String statut;
+    private String statut = ReglesCinema.STATUT_OUVERTE;
 
     public Seance() {
         setNomTable("CINE_SEANCE");
@@ -50,6 +50,15 @@ public class Seance extends ClassMAPTable {
         }
         if (dateheure_debut == null || dateheure_fin == null) {
             throw new IllegalArgumentException("Les horaires de début et de fin sont obligatoires.");
+        }
+        String sqlFilm = "SELECT ACTIF FROM CINE_FILM WHERE IDFILM = ?";
+        try (PreparedStatement ps = connexion.prepareStatement(sqlFilm)) {
+            ps.setString(1, idfilm.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next() || rs.getInt("ACTIF") != 1) {
+                    throw new IllegalArgumentException("Le film sélectionné est absent ou inactif.");
+                }
+            }
         }
         if (!dateheure_fin.after(dateheure_debut)) {
             throw new IllegalArgumentException("La fin de la séance doit être après son début.");

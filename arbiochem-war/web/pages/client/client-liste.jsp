@@ -3,19 +3,18 @@
 <%
     try {
         Client objet = new Client();
-        String[] criteres = {"codeclient", "nom", "prenom", "email"};
-        String[] entetes = {"codeclient", "nom", "prenom", "email", "telephone", "actif"};
+        String[] criteres = {"nom", "prenom", "email"};
+        String[] entetes = {"idclient", "nom", "prenom", "email", "telephone", "actif"};
         PageRecherche pageRecherche = new PageRecherche(objet, request, criteres, null, 3, entetes, entetes.length);
         pageRecherche.setTitre("Liste des clients");
         pageRecherche.setUtilisateur((user.UserEJB) session.getValue("u"));
         pageRecherche.setLien((String) session.getValue("lien"));
         pageRecherche.setApres("client/client-liste.jsp");
         pageRecherche.creerObjetPage(entetes, null);
-        pageRecherche.getFormu().getChamp("codeclient").setLibelle("Code client");
         pageRecherche.getFormu().getChamp("nom").setLibelle("Nom");
         pageRecherche.getFormu().getChamp("prenom").setLibelle("Pr&eacute;nom");
         pageRecherche.getFormu().getChamp("email").setLibelle("Email");
-        pageRecherche.getTableau().setLibelleAffiche(new String[]{"Code", "Nom", "Pr&eacute;nom", "Email", "T&eacute;l&eacute;phone", "Active"});
+        pageRecherche.getTableau().setLibelleAffiche(new String[]{"Identifiant", "Nom", "Pr&eacute;nom", "Email", "T&eacute;l&eacute;phone", "Active"});
 %>
 <div class="content-wrapper">
     <section class="content-header"><h1><%= pageRecherche.getTitre() %></h1></section>

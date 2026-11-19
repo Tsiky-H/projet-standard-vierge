@@ -11,7 +11,7 @@ Les noms de classes `Lib` et les alias proposés sont des conventions. Les propr
 - **Classe créée** : `cinema.CategoriePlaceLib extends cinema.CategoriePlace`.
 - **Utilisation** : liste et fiche catégorie; sélecteur dans la saisie d’une place.
 - **Grain** : une ligne par catégorie.
-- **Colonnes** : `IDCATEGORIEPLACE VARCHAR2(20)` (clé), `CODE VARCHAR2(20)`, `LIBELLE VARCHAR2(80)`, `PRIX_BASE NUMBER(12,2)`, `ACTIF NUMBER(1)`.
+- **Colonnes** : `IDCATEGORIEPLACE VARCHAR2(20)` (clé), `LIBELLE VARCHAR2(80)`, `PRIX_BASE NUMBER(12,2)`, `ACTIF NUMBER(1)`.
 - Cette vue n’a pas besoin de jointure. Le suffixe `Lib` est une convention de lecture, pas une obligation d’avoir un champ calculé.
 
 ### `CINE_SALLE_LIB`
@@ -19,7 +19,7 @@ Les noms de classes `Lib` et les alias proposés sont des conventions. Les propr
 - **Classe créée** : `cinema.SalleLib extends cinema.Salle`.
 - **Utilisation** : liste des salles (`PageRecherche`) et fiche salle (`PageConsulte`).
 - **Grain** : une ligne par salle.
-- **Colonnes** : `IDSALLE VARCHAR2(20)` (clé), `CODE VARCHAR2(20)`, `LIBELLE VARCHAR2(100)`, `CAPACITE NUMBER(6)`, `ACTIF NUMBER(1)`, `NOMBRE_PLACES NUMBER`.
+- **Colonnes** : `IDSALLE VARCHAR2(20)` (clé), `LIBELLE VARCHAR2(100)`, `CAPACITE NUMBER(6)`, `ACTIF NUMBER(1)`, `NOMBRE_PLACES NUMBER`.
 - `NOMBRE_PLACES` compte les places configurées dans `CINE_PLACE`, actives ou non. Calculer l’agrégat dans une sous-requête groupée pour éviter de dupliquer les salles; afficher 0 lorsqu’une salle n’a pas encore de place.
 
 ### `CINE_PLACE_LIB`
@@ -35,7 +35,7 @@ Les noms de classes `Lib` et les alias proposés sont des conventions. Les propr
 - **Classe créée** : `cinema.FilmLib extends cinema.Film`.
 - **Utilisation** : liste et fiche film; contexte de lecture des séances.
 - **Grain** : une ligne par film.
-- **Colonnes** : `IDFILM VARCHAR2(20)` (clé), `CODE VARCHAR2(20)`, `TITRE VARCHAR2(200)`, `DUREE_MINUTES NUMBER(4)`, `CLASSIFICATION_AGE NUMBER(3)` (nullable), `ACTIF NUMBER(1)`.
+- **Colonnes** : `IDFILM VARCHAR2(20)` (clé), `TITRE VARCHAR2(200)`, `DUREE_MINUTES NUMBER(4)`, `CLASSIFICATION_AGE NUMBER(3)` (nullable), `ACTIF NUMBER(1)`.
 
 ### `CINE_SEANCE_LIB`
 
@@ -47,13 +47,19 @@ Les noms de classes `Lib` et les alias proposés sont des conventions. Les propr
 
 ## Disponibilité des places
 
+### `CINE_SEANCE_VENDABLE`
+
+- Séances `PLANIFIEE` ou `OUVERTE` dont l'heure de fin n'est pas passée et
+  dont le film et la salle sont actifs. Cette vue permet aussi l'achat direct
+  après le début de la séance.
+
 ### `CINE_PLACE_SEANCE_DISPO`
 
 - **Classe créée** : `cinema.PlaceSeanceDispo extends cinema.PlaceLib`, dédiée à la lecture filtrée par séance.
 - **Utilisation** : plan interactif lors d’une réservation ou vente.
 - **Grain** : une ligne par couple séance/place.
 - **Colonnes** : `IDSEANCE`, `IDPLACE`, `IDSALLE`, `IDSALLELIB`, `IDFILM`, `IDFILMLIB`, `DATEHEURE_DEBUT`, `DATEHEURE_FIN`, `NUMERO`, `RANGEE`, `IDCATEGORIEPLACE`, `IDCATEGORIEPLACELIB`, `PRIX_BASE`, `ACTIF`, `SOURCE_BLOCAGE`, `STATUT_OCCUPATION`, `DISPONIBLE`.
-- Une place active d’une séance `PLANIFIEE` ou `OUVERTE` est disponible si aucune ligne bloquante de réservation ou de vente ne la concerne. Une ligne de réservation `BLOQUEE` ou `ACHETEE` rend la place indisponible; si l’échéance passe sans paiement valide, le service retrouve le paiement à travers `CINE_PAIEMENT.IDVENTE` et `VENTE.IDRESERVATION`, puis expire la réservation et sa vente dans la même transaction. Un paiement valide reçu à temps garde la réservation bloquante pendant l’attente de validation de la facture. Une ligne de vente directe `BLOQUEE` ou `ACHETEE` bloque également la place. Les lignes `EXPIREE` ou `ANNULEE` ne bloquent pas.
+- Une place active d’une séance `PLANIFIEE` ou `OUVERTE` reste disponible jusqu'à la fin de la séance si aucune ligne bloquante de réservation ou de vente ne la concerne. La réservation demeure limitée à l'avant-début par `CINE_SEANCE_RESERVABLE` et par les contrôles transactionnels. Une ligne de réservation `BLOQUEE` ou `ACHETEE` rend la place indisponible; si l’échéance passe sans paiement valide, le service retrouve le paiement à travers `CINE_PAIEMENT.IDVENTE` et `VENTE.IDRESERVATION`, puis expire la réservation et sa vente dans la même transaction. Un paiement valide reçu à temps garde la réservation bloquante pendant l’attente de validation de la facture. Une ligne de vente directe `BLOQUEE` ou `ACHETEE` bloque également la place. Les lignes `EXPIREE` ou `ANNULEE` ne bloquent pas.
 - `SOURCE_BLOCAGE` vaut `RESERVATION`, `VENTE` ou `NULL`. `STATUT_OCCUPATION` expose `BLOQUEE`, `ACHETEE`, `DISPONIBLE` ou `INDISPONIBLE`; `DISPONIBLE` vaut 1 ou 0.
 - La vue ne garantit pas la réservation : le service doit revérifier et verrouiller en transaction au moment de l’écriture.
 

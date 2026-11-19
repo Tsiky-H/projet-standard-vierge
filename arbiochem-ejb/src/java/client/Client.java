@@ -8,7 +8,6 @@ import java.sql.Date;
 public class Client extends ClassMAPTable {
 
     private String idclient;
-    private String codeclient;
     private String nom;
     private String prenom;
     private String email;
@@ -37,9 +36,6 @@ public class Client extends ClassMAPTable {
         if (datycreation == null) {
             datycreation = new Date(System.currentTimeMillis());
         }
-        if (codeclient == null || codeclient.trim().isEmpty()) {
-            setCodeclient(idclient);
-        }
     }
 
     @Override
@@ -50,8 +46,6 @@ public class Client extends ClassMAPTable {
 
     public String getIdclient() { return idclient; }
     public void setIdclient(String idclient) { this.idclient = idclient; }
-    public String getCodeclient() { return codeclient; }
-    public void setCodeclient(String codeclient) { this.codeclient = codeclient; }
     public String getNom() { return nom; }
     public void setNom(String nom) { this.nom = nom; }
     public String getPrenom() { return prenom; }

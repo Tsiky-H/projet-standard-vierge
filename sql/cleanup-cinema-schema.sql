@@ -8,6 +8,7 @@
 -- Apres ce script, relancer dans cet ordre :
 --   @/container-entrypoint-initdb.d/framework-base.sql
 --   @/container-entrypoint-initdb.d/cinema-application-final.sql
+--   @/container-entrypoint-initdb.d/cinema-application-data.sql
 SET DEFINE OFF
 SET SQLBLANKLINES ON
 WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK

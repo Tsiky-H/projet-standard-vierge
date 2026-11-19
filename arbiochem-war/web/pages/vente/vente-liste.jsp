@@ -25,8 +25,9 @@
         pageRecherche.getTableau().setColonneLien(new String[]{"idvente"});
 %>
 <div class="content-wrapper">
-    <section class="content-header"><h1>Liste des ventes brouillon</h1></section>
+    <section class="content-header"><h1>Liste des ventes</h1></section>
     <section class="content">
+        <p><a class="btn btn-primary" href="module.jsp?but=vente/vente-directe-saisie.jsp">Nouvel achat direct</a></p>
         <form action="<%=pageRecherche.getLien()%>?but=vente/vente-liste.jsp" method="post">
             <%=pageRecherche.getFormu().getHtmlEnsemble()%>
         </form>

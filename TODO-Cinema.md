@@ -196,11 +196,17 @@ Documentation finale
   - Creer la vente brouillon avant la tentative de paiement; implementer la
     vente transactionnelle de billets avec verrouillage des places, snapshot
     des prix, date/heure de vente (`Timestamp`), facture et paiement rattache a
-    la vente. Garder les places bloquees
-    jusqu'a validation APJ de la facture; emettre les billets ensuite.
-  - Si la facture est corrigeable, conserver le blocage pendant sa
-    correction. Si elle est definitivement refusee, annuler la vente, liberer
-    les places et rembourser le paiement.
+    la vente. Apres paiement valide, passer la vente a `VALIDEE`, acheter les
+    places et emettre les billets dans la meme transaction, sans attendre la
+    validation APJ de la facture.
+  - Si la facture est corrigeable, la corriger et la soumettre a nouveau sans
+    changer la vente deja validee. Si elle est definitivement refusee, annuler
+    la vente, les billets et liberer les places, puis rembourser le paiement.
+  - Parcours initial implemente: creation transactionnelle de vente et lignes,
+    verrouillage des places, snapshot des prix, paiement, facture, mouvement
+    de caisse, vente validee et billets emis dans la transaction de paiement.
+    Restent a traiter le refus/correction definitive, l'annulation et le
+    remboursement, puis les essais de concurrence.
   - Depend de: `creating-sales-payment-classes`,
     `implementing-showing-availability-service`.
 
@@ -208,22 +214,21 @@ Documentation finale
 
 ### A faire prochainement
 
-- [ ] **Creer les formulaires de creation des trois entites cinema**
+- [x] **Creer les formulaires de creation des trois entites cinema**
   - ID: `creating-film-room-showing-forms`
   - Entites concernees: `Film`, `Salle` et `Seance`. Creer un formulaire APJ
     de creation pour chacune, avec les controles metier associes.
-  - **Film:** saisir le code, le titre, la duree en minutes et la
-    classification d'age facultative. Le code est unique, le titre est
+  - **Film:** saisir le titre, la duree en minutes et la classification d'age
+    facultative. L'ID genere est l'unique identifiant du film, le titre est
     obligatoire et la duree doit etre strictement positive. Le film est actif
-    par defaut; l'ID est genere par le systeme.
-  - **Salle:** saisir le code et le libelle, puis definir son plan par rangees.
-    Chaque rangee contient un nombre de places libre et correspond a une
-    categorie de places; une categorie peut etre utilisee pour plusieurs
-    rangees. Generer les places avec leur numero, rangee et categorie a partir
-    de cette configuration. Calculer la capacite comme le nombre total de
-    places generees, sans la saisir une seconde fois. Harmoniser la valeur
-    initiale d'`ACTIF`: le SQL a un defaut `1`, mais la classe `Salle` ne
-    l'initialise pas actuellement.
+    par defaut. Les colonnes `CODE` redondantes ont ete supprimees des tables
+    metier; l'ID est leur identifiant unique.
+  - **Salle:** saisir le libelle, puis definir son plan par rangees.
+    Chaque categorie active correspond a une rangee; saisir son nombre de places.
+    Generer les places avec leur numero, rangee et categorie a partir de cette
+    configuration. Calculer la capacite comme le nombre total de places
+    generees, sans la saisir une seconde fois. Choisir explicitement l'etat
+    actif de la salle.
   - **Seance:** choisir un film actif, une salle active, un jour et une heure
     de debut. Calculer l'heure de fin a partir de la duree du film. A la
     creation, initialiser la seance a `OUVERTE`. Refuser une heure de fin non
@@ -280,10 +285,11 @@ Documentation finale
     `implementing-reservation-service`,
     `implementing-payment-service`.
 
-- [ ] **Creer les ecrans de vente directe**
+- [x] **Creer les ecrans de vente directe**
   - ID: `creating-sales-screens`
   - Creer les ecrans de selection des places, paiement, fiche et liste des
-    ventes directes.
+    ventes directes. Les ecrans de saisie, plan, paiement, liste et fiche sont
+    presents; ajouter ensuite le parcours de refus/correction de facture.
   - Depend de: `creating-hall-screens`,
     `implementing-direct-sale-service`.
 
@@ -368,8 +374,6 @@ Documentation finale
   *le clique sur une salle dans la liste aussi redirige vers le plan de la salle
   *decider des flux de navigation logique a avoir
 
--permettre de valider la vente par un bouton qu'on trouvera dans la fiche de vente(meme que dans fiche reservation)(4)
-
 -enrichir le formulaire pour faire une reservation: ajouter champs de saisie pour date expiration meme si facultatif,decider si on separera les champs pour creer une seance(film,heure,salle,jour),et dans ce cas ces champs seront interdependants, et on creera ensuite la seance dans le systeme(6)
   *champs interdependants: si on choisit une salle, la liste de films, jours, heures de diffusions seront mis a jour automatiquement et ainsi de suite a chaque choix
 
@@ -379,4 +383,40 @@ Documentation finale
 -permettre l'achat directe de billets(creer affichage aussi)(5)
 
 -une reservation et achat directe devront generes des billets ou etre rattaches a des billets? on doit voir aussi ces billets(2)
+
+## 8. Ajouter les métadonnées réelles des films
+
+- [ ] **Ajouter réalisateur et genre aux films**
+  - ID: `adding-film-director-and-genre`
+  - Enregistrer les informations présentes dans le programme réel :
+    `REALISATEUR` et `GENRE` appartiennent à `CINE_FILM`. Ne pas ajouter le
+    réalisateur à `CINE_SEANCE`, qui référence déjà le film.
+  - Décider les longueurs et les règles de saisie des deux champs, et confirmer
+    si le genre reste un texte libre pour la première version ou devient une
+    table de référence.
+  - **SQL de création et migration** : ajouter les colonnes à
+    `CINE_FILM` dans `cinema-application-final.sql`; créer un script de
+    migration non destructif pour les bases existantes; renseigner les valeurs
+    des trois films réels et répercuter les colonnes dans les vues de lecture.
+  - **Classe métier** : ajouter `realisateur` et `genre` à `cinema.Film`, avec
+    accesseurs et contrôles de saisie; vérifier l'héritage et le mapping de
+    `cinema.FilmLib`.
+  - **Vues et classes de lecture** : exposer les champs dans
+    `CINE_FILM_LIB` et `CINE_SEANCE_LIB`, puis dans les vues dérivées utilisées
+    pour choisir une séance (`CINE_SEANCE_RESERVABLE` et
+    `CINE_SEANCE_VENDABLE`). Ajouter les propriétés nécessaires à
+    `cinema.SeanceLib` et vérifier les listes APJ.
+  - **Formulaire et affichages JSP** : ajouter les champs au formulaire de
+    création du film, définir leurs libellés et validations, puis afficher
+    réalisateur et genre dans la liste/fiche des films et, si utile, dans les
+    choix et affichages des séances.
+  - **Données et documentation** : mettre à jour
+    `cinema-donnees-reelles-2026.sql`, les scripts de réinitialisation et les
+    documents `Vues-Cinema.md`, `Ecrans-Cinema.md` et `README.md`.
+  - **Vérifications** : rejouer la migration sur une base contenant déjà des
+    données; vérifier le chargement des données réelles, la création de film,
+    les listes de films et les sélections de séances; compiler et tester les
+    écrans concernés.
+  - Depend de: `cinema-donnees-reelles-2026.sql` et de la décision sur le
+    modèle de genre.
 

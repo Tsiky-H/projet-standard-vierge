@@ -7,7 +7,6 @@ import java.sql.Connection;
 public class Caisse extends ClassMAPTable {
 
     private String idcaisse;
-    private String code;
     private String libelle;
     private double solde_theorique;
     private int actif = 1;
@@ -39,18 +38,16 @@ public class Caisse extends ClassMAPTable {
 
     @Override
     public String[] getMotCles() {
-        return new String[] {"idcaisse", "code", "libelle"};
+        return new String[] {"idcaisse", "libelle"};
     }
 
     @Override
     public String[] getValMotCles() {
-        return new String[] {"idcaisse", "code", "libelle"};
+        return new String[] {"idcaisse", "libelle"};
     }
 
     public String getIdcaisse() { return idcaisse; }
     public void setIdcaisse(String idcaisse) { this.idcaisse = idcaisse; }
-    public String getCode() { return code; }
-    public void setCode(String code) { this.code = code; }
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
     public double getSolde_theorique() { return solde_theorique; }

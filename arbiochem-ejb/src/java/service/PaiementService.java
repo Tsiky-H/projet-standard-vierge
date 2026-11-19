@@ -23,14 +23,15 @@ import vente.Billet;
  *
  * Un paiement VALIDE crée, dans la même transaction : le paiement, la facture
  * payée avec ses lignes, la liaison paiement/facture et le mouvement
- * d'encaissement, affecte la caisse et confirme immédiatement la vente de
- * réservation ainsi que ses billets.
+ * d'encaissement et affecte la caisse. Pour une vente directe, il la valide,
+ * achète ses places et émet les billets; pour une réservation, il la confirme
+ * et émet également les billets.
  */
 public class PaiementService {
 
-    public static final String MODE_ESPECES = "ESPECES";
-    public static final String MODE_MOBILE = "MOBILE";
-    public static final String MODE_CARTE = "CARTE";
+    public static final String ID_MODE_ESPECES = "MP000001";
+    public static final String ID_MODE_MOBILE = "MP000002";
+    public static final String ID_MODE_CARTE = "MP000003";
 
     private static final String STATUT_FACTURE_PAYEE = "PAYEE";
     private static final String SEQ_PAIEMENT = "SEQ_CINE_PAIEMENT";
@@ -88,8 +89,8 @@ public class PaiementService {
                             "Le paiement doit couvrir exactement le montant total de la vente (" + montantDu + ").");
                 }
 
-                String codeMode = lireCodeModeActif(connexion, idModePaiement.trim());
-                RegleMode regle = appliquerReglesMode(connexion, idModePaiement.trim(), codeMode,
+                String idMode = lireModePaiementActif(connexion, idModePaiement.trim());
+                RegleMode regle = appliquerReglesMode(connexion, idModePaiement.trim(), idMode,
                         referenceExterne, montantRecu, montantDu);
 
                 String idCaisseUtilisee = choisirCaisse(connexion, idCaisse);
@@ -98,9 +99,9 @@ public class PaiementService {
                         montantDu, regle.reference, ReglesCinema.STATUT_PAIEMENT_VALIDE);
                 FactureClient facture = creerFacturePayee(userEJB, connexion, vente);
                 creerLiaison(userEJB, connexion, paiement, facture, montantDu);
-                creerMouvementEncaissement(userEJB, connexion, paiement, facture, idCaisseUtilisee, montantDu, codeMode);
+                creerMouvementEncaissement(userEJB, connexion, paiement, facture, idCaisseUtilisee, montantDu, idMode);
                 affecterCaisse(connexion, vente.idVente, idCaisseUtilisee);
-                confirmerVenteReservationEtEmettreBillets(
+                finaliserVenteEtEmettreBillets(
                         userEJB, connexion, vente, facture, paiement);
 
                 connexion.commit();
@@ -135,7 +136,8 @@ public class PaiementService {
             try {
                 VenteInfo vente = verrouillerVente(connexion, idVente.trim());
                 verifierVentePayable(connexion, vente);
-                lireCodeModeActif(connexion, idModePaiement.trim());
+                String idMode = lireModePaiementActif(connexion, idModePaiement.trim());
+                verifierModePaiementPrisEnCharge(idMode);
 
                 String reference = referenceExterne == null ? null : referenceExterne.trim();
                 if (reference != null && reference.isEmpty()) {
@@ -227,8 +229,8 @@ public class PaiementService {
         }
     }
 
-    private static String lireCodeModeActif(Connection connexion, String idModePaiement) throws Exception {
-        String sql = "SELECT CODE, ACTIF FROM MODEPAIEMENT WHERE IDMODEPAIEMENT = ?";
+    private static String lireModePaiementActif(Connection connexion, String idModePaiement) throws Exception {
+        String sql = "SELECT IDMODEPAIEMENT, ACTIF FROM MODEPAIEMENT WHERE IDMODEPAIEMENT = ?";
         try (PreparedStatement ps = connexion.prepareStatement(sql)) {
             ps.setString(1, idModePaiement);
             try (ResultSet rs = ps.executeQuery()) {
@@ -238,13 +240,13 @@ public class PaiementService {
                 if (rs.getInt("ACTIF") != 1) {
                     throw new Exception("Le mode de paiement sélectionné est inactif.");
                 }
-                return rs.getString("CODE");
+                return rs.getString("IDMODEPAIEMENT");
             }
         }
     }
 
     /** Ce qui change selon le mode : espèces (monnaie), mobile et carte (référence obligatoire et unique). */
-    private static RegleMode appliquerReglesMode(Connection connexion, String idModePaiement, String codeMode,
+    private static RegleMode appliquerReglesMode(Connection connexion, String idModePaiement, String idMode,
             String referenceExterne, double montantRecu, BigDecimal montantDu) throws Exception {
         RegleMode regle = new RegleMode();
         String reference = referenceExterne == null ? null : referenceExterne.trim();
@@ -252,26 +254,34 @@ public class PaiementService {
             reference = null;
         }
 
-        if (MODE_ESPECES.equals(codeMode)) {
+        if (ID_MODE_ESPECES.equals(idMode)) {
             BigDecimal recu = ReglesCinema.montantDecimal(montantRecu, "Le montant reçu est invalide.");
             if (recu.compareTo(montantDu) < 0) {
                 throw new IllegalArgumentException("Le montant reçu est inférieur au montant à payer.");
             }
             regle.monnaieARendre = recu.subtract(montantDu).doubleValue();
             reference = null;
-        } else if (MODE_MOBILE.equals(codeMode) || MODE_CARTE.equals(codeMode)) {
+        } else if (ID_MODE_MOBILE.equals(idMode) || ID_MODE_CARTE.equals(idMode)) {
             if (reference == null) {
                 throw new IllegalArgumentException(
                         "La référence de la transaction est obligatoire pour ce mode de paiement.");
             }
             verifierReferenceInedite(connexion, idModePaiement, reference);
-        }
+        } else verifierModePaiementPrisEnCharge(idMode);
 
         if (reference != null && reference.length() > 120) {
             throw new IllegalArgumentException("La référence ne peut pas dépasser 120 caractères.");
         }
         regle.reference = reference;
         return regle;
+    }
+
+    private static void verifierModePaiementPrisEnCharge(String idMode) {
+        if (!ID_MODE_ESPECES.equals(idMode)
+                && !ID_MODE_MOBILE.equals(idMode)
+                && !ID_MODE_CARTE.equals(idMode)) {
+            throw new IllegalArgumentException("Ce mode de paiement n'est pas pris en charge.");
+        }
     }
 
     /** Une même référence de transaction ne peut pas encaisser deux ventes. */
@@ -457,7 +467,7 @@ public class PaiementService {
      * construirePK, donc une valeur par défaut posée dans la PK arriverait trop tard.
      */
     private static void creerMouvementEncaissement(UserEJB userEJB, Connection connexion, Paiement paiement,
-            FactureClient facture, String idCaisse, BigDecimal montant, String codeMode) throws Exception {
+            FactureClient facture, String idCaisse, BigDecimal montant, String idMode) throws Exception {
         // Le paiement peut avoir eu sa date perdue (objet rechargé) : la date du mouvement ne doit jamais être nulle.
         java.sql.Timestamp datePaiement = paiement.getDaty() != null
                 ? paiement.getDaty() : new java.sql.Timestamp(System.currentTimeMillis());
@@ -468,7 +478,7 @@ public class PaiementService {
         mouvement.setIdpaiement(paiement.getIdpaiement());
         mouvement.setIdfactureclient(facture.getIdfactureclient());
         mouvement.setDaty(new java.sql.Date(datePaiement.getTime()));
-        mouvement.setObservation("Encaissement du paiement " + paiement.getNumero_paiement() + " (" + codeMode + ")");
+        mouvement.setObservation("Encaissement du paiement " + paiement.getNumero_paiement() + " (" + idMode + ")");
         userEJB.createObject(mouvement, connexion);
     }
 
@@ -486,14 +496,17 @@ public class PaiementService {
     }
 
     /**
-     * Politique A : un paiement valide confirme immédiatement la réservation,
-     * achète les places et émet un seul billet par place réservée.
+     * Le paiement finalise immédiatement la vente ou la réservation et émet
+     * un billet par place. Le visa APJ de la facture reste une validation
+     * documentaire et ne retarde pas la remise des billets.
      */
-    private static void confirmerVenteReservationEtEmettreBillets(UserEJB userEJB,
+    private static void finaliserVenteEtEmettreBillets(UserEJB userEJB,
                     Connection connexion, VenteInfo vente, FactureClient facture, Paiement paiement) throws Exception {
-                if (!ReglesCinema.TYPE_VENTE_RESERVATION.equals(vente.typeVente)) {
+                if (ReglesCinema.TYPE_VENTE_DIRECTE.equals(vente.typeVente)) {
+                    finaliserVenteDirecteEtEmettreBillets(userEJB, connexion, vente, facture, paiement);
                     return;
                 }
+                if (!ReglesCinema.TYPE_VENTE_RESERVATION.equals(vente.typeVente)) return;
                 if (ReglesCinema.estVide(vente.idReservation)) {
                     throw new Exception("La vente de réservation ne référence aucune réservation.");
                 }
@@ -543,6 +556,36 @@ public class PaiementService {
                     }
                 }
             }
+
+    private static void finaliserVenteDirecteEtEmettreBillets(UserEJB userEJB, Connection connexion,
+            VenteInfo vente, FactureClient facture, Paiement paiement) throws Exception {
+        update(connexion,
+                "UPDATE VENTE SET STATUT = ?, IDFACTURECLIENT = ? WHERE IDVENTE = ? AND TYPE_VENTE = ? AND STATUT = ?",
+                ReglesCinema.STATUT_VENTE_VALIDEE, facture.getIdfactureclient(), vente.idVente,
+                ReglesCinema.TYPE_VENTE_DIRECTE, ReglesCinema.STATUT_BROUILLON);
+        update(connexion,
+                "UPDATE VENTEDETAILS SET STATUT = ? WHERE IDVENTE = ? AND STATUT = ?",
+                ReglesCinema.STATUT_ACHETEE, vente.idVente, ReglesCinema.STATUT_BLOQUEE);
+
+        String sql = "SELECT IDVENTEDETAILS FROM VENTEDETAILS WHERE IDVENTE = ? AND STATUT = ? ORDER BY IDVENTEDETAILS";
+        try (PreparedStatement ps = connexion.prepareStatement(sql)) {
+            ps.setString(1, vente.idVente);
+            ps.setString(2, ReglesCinema.STATUT_ACHETEE);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String idDetail = rs.getString("IDVENTEDETAILS");
+                    Billet billet = new Billet();
+                    billet.setNumero_billet(prochainNumero(connexion, "SEQ_CINE_BILLET", "BIL"));
+                    billet.setDaty_emission(new java.sql.Date(paiement.getDaty().getTime()));
+                    billet.setStatut("EMIS");
+                    billet.setIdventedetails(idDetail);
+                    billet.setQr_payload("BILLET:" + billet.getNumero_billet()
+                            + "|VENTE:" + vente.idVente + "|PAIEMENT:" + paiement.getNumero_paiement());
+                    userEJB.createObject(billet, connexion);
+                }
+            }
+        }
+    }
 
     private static void update(Connection connexion, String sql, String... parametres) throws Exception {
                 try (PreparedStatement ps = connexion.prepareStatement(sql)) {

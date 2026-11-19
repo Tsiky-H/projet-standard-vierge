@@ -7,7 +7,6 @@ import java.sql.Connection;
 public class Salle extends ClassMAPTable {
 
     private String idSalle;
-    private String code;
     private String libelle;
     private int capacite;
     private int actif;
@@ -32,20 +31,29 @@ public class Salle extends ClassMAPTable {
         setIdSalle(makePK(connexion));
     }
 
+    @Override
+    public void controler(Connection connexion) throws Exception {
+        if (libelle == null || libelle.trim().isEmpty()) {
+            throw new IllegalArgumentException("Le libellé de la salle est obligatoire.");
+        }
+        if (capacite <= 0) {
+            throw new IllegalArgumentException("La salle doit contenir au moins une place.");
+        }
+        if (capacite > 999999) {
+            throw new IllegalArgumentException("La capacité maximale d'une salle est de 999999 places.");
+        }
+        if (actif != 0 && actif != 1) {
+            throw new IllegalArgumentException("L'état actif de la salle est invalide.");
+        }
+        libelle = libelle.trim();
+    }
+
     public String getIdSalle() {
         return idSalle;
     }
 
     public void setIdSalle(String idSalle) {
         this.idSalle = idSalle;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
     }
 
     public String getLibelle() {

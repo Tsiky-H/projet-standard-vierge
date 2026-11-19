@@ -91,13 +91,13 @@ Dans le contenu central:
 Titre: Liste des salles                         [Nouvelle salle]
 
 Filtres:
-  Code salle | Libelle | Active                         [Rechercher]
+  Identifiant | Libelle | Active                     [Rechercher]
 
 Tableau:
-  Code | Libelle | Capacite | Nombre de places | Etat | Actions
+  Identifiant | Libelle | Capacite | Nombre de places | Etat | Actions
 ```
 
-La colonne `Libelle` ou `Code` est un lien vers la fiche de la salle.
+La colonne `Libelle` ou `Identifiant` est un lien vers la fiche de la salle.
 La colonne `Actions` contient au minimum:
 
 - `Voir la salle`;
@@ -154,7 +154,7 @@ module.jsp?but=cinema/salle/salle-fiche.jsp&id=<IDSALLE>&tab=plan
 < Retour a la liste des salles       Fiche de la salle
 
 Bloc Informations:
-  Code
+  Identifiant
   Libelle
   Capacite
   Etat
@@ -236,9 +236,9 @@ Liste > Nouvelle categorie > Enregistrer > Fiche categorie
 Liste > Categorie > Fiche > Modifier > Enregistrer > Fiche categorie
 ```
 
-La categorie contient `code`, `libelle`, `prix_base`, `actif`. Une modification
-du prix ne modifie jamais les anciens billets: le prix est copie dans les
-lignes de reservation/vente.
+La categorie contient `idcategorieplace`, `libelle`, `prix_base`, `actif`. Une
+modification du prix ne modifie jamais les anciens billets: le prix est copie
+dans les lignes de reservation/vente.
 
 ### 5.2 Films
 
@@ -349,7 +349,10 @@ Nouvelle reservation
 Fichiers:
 
 - `vente/vente-directe-saisie.jsp`
-- `vente/vente-paiement.jsp`
+- `vente/vente-directe-places.jsp`
+- `vente/vente-paiement-direct.jsp`
+- `vente/apres-vente-directe.jsp`
+- `vente/apres-paiement-direct.jsp`
 - `vente/vente-fiche.jsp`
 - `vente/vente-liste.jsp`
 - Classes: `vente.Vente`, `vente.VenteDetails`
@@ -366,17 +369,15 @@ Vente directe
   -> choisir le mode de paiement
   -> creer une vente brouillon avant la tentative de paiement
   -> payer
-  -> le paiement reference la vente; paiement valide: creer facture payee +
-     mouvement d'encaissement et finaliser la vente
-  -> emettre les billets
-  -> afficher la vente
+  -> le paiement reference la vente; creer facture payee et mouvement
+     d'encaissement, passer la vente a VALIDEE, acheter les places et emettre
+     les billets dans la meme transaction
+  -> afficher la vente et ses billets
 ```
 
-La reservation temporaire n'est pas necessaire pour une vente directe, mais
-les places sont bloquees apres paiement jusqu'a la validation de la facture.
-Une facture corrigeable est soumise a nouveau sans liberer les places. Si elle
-est definitivement refusee, la vente est annulee, les places sont liberees et
-le paiement est rembourse.
+La reservation temporaire n'est pas necessaire pour une vente directe. Le
+paiement valide la vente et emet les billets sans attendre le visa APJ de la
+facture. Le traitement d'un eventuel refus de facture reste a implementer.
 
 ## 8. Facture, paiement et caisse
 

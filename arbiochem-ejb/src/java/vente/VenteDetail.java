@@ -72,7 +72,8 @@ public class VenteDetail extends ClassMAPTable {
             throw new IllegalArgumentException("Une ligne de vente créée doit avoir le statut BLOQUEE.");
         }
 
-        String sql = "SELECT v.STATUT AS STATUT_VENTE, s.STATUT AS STATUT_SEANCE, s.DATEHEURE_DEBUT, "
+        String sql = "SELECT v.STATUT AS STATUT_VENTE, v.TYPE_VENTE, s.STATUT AS STATUT_SEANCE, "
+                + "s.DATEHEURE_DEBUT, s.DATEHEURE_FIN, "
                 + "p.IDSALLE AS SALLE_PLACE, s.IDSALLE AS SALLE_SEANCE, "
                 + "p.ACTIF AS PLACE_ACTIVE, p.IDCATEGORIEPLACE AS CATEGORIE_PLACE, "
                 + "cp.ACTIF AS CATEGORIE_ACTIVE "
@@ -96,10 +97,15 @@ public class VenteDetail extends ClassMAPTable {
                         && !ReglesCinema.STATUT_OUVERTE.equals(statutSeance)) {
                     throw new Exception("La séance n'est pas ouverte à la vente.");
                 }
-                if (rs.getTimestamp("DATEHEURE_DEBUT") == null
-                        || !rs.getTimestamp("DATEHEURE_DEBUT")
-                                .after(new java.sql.Timestamp(System.currentTimeMillis()))) {
-                    throw new Exception("La séance a déjà commencé.");
+                java.sql.Timestamp maintenant = new java.sql.Timestamp(System.currentTimeMillis());
+                if (ReglesCinema.TYPE_VENTE_DIRECTE.equals(rs.getString("TYPE_VENTE"))) {
+                    if (rs.getTimestamp("DATEHEURE_FIN") == null
+                            || !rs.getTimestamp("DATEHEURE_FIN").after(maintenant)) {
+                        throw new Exception("La séance est terminée; aucune vente directe n'est possible.");
+                    }
+                } else if (rs.getTimestamp("DATEHEURE_DEBUT") == null
+                        || !rs.getTimestamp("DATEHEURE_DEBUT").after(maintenant)) {
+                    throw new Exception("La séance a déjà commencé; une réservation n'est plus possible.");
                 }
                 if (!rs.getString("SALLE_PLACE").equals(rs.getString("SALLE_SEANCE"))) {
                     throw new Exception("La place n'appartient pas à la salle de cette séance.");

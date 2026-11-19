@@ -6,7 +6,6 @@ import java.sql.Connection;
 public class Film extends ClassMAPTable {
 
     private String idfilm;
-    private String code;
     private String titre;
     private int duree_minutes;
     private int classification_age;
@@ -24,14 +23,29 @@ public class Film extends ClassMAPTable {
 
     @Override
     public void construirePK(Connection connexion) throws Exception {
-        preparePk("FLM", "getSeqCineFilm");
+        preparePk("FIL", "getSeqCineFilm");
         setIdfilm(makePK(connexion));
+    }
+
+    @Override
+    public void controler(Connection connexion) throws Exception {
+        if (titre == null || titre.trim().isEmpty()) {
+            throw new IllegalArgumentException("Le titre du film est obligatoire.");
+        }
+        if (duree_minutes <= 0) {
+            throw new IllegalArgumentException("La durée du film doit être supérieure à zéro minute.");
+        }
+        if (classification_age < 0) {
+            throw new IllegalArgumentException("La classification d'âge ne peut pas être négative.");
+        }
+        if (actif != 0 && actif != 1) {
+            throw new IllegalArgumentException("L'état actif du film est invalide.");
+        }
+        titre = titre.trim();
     }
 
     public String getIdfilm() { return idfilm; }
     public void setIdfilm(String idfilm) { this.idfilm = idfilm; }
-    public String getCode() { return code; }
-    public void setCode(String code) { this.code = code; }
     public String getTitre() { return titre; }
     public void setTitre(String titre) { this.titre = titre; }
     public int getDuree_minutes() { return duree_minutes; }
