@@ -15,6 +15,7 @@ import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +66,7 @@ public class ReservationService {
                 verifierSeancesReservables(connexion, placesParSeance, reservation);
                 verrouillerPlaces(connexion, placesParSeance);
                 lirePlacesEtVerifierDisponibilite(connexion, placesParSeance);
+                appliquerRemisesPlaces(connexion, placesParSeance);
 
                 creerReservationMere(userEJB, connexion, reservation, placesParSeance);
                 Map<String, ReservationDetail> detailsParSeance = creerDetailsReservation(
@@ -284,6 +286,52 @@ public class ReservationService {
         }
     }
 
+    /** Applique une seule remise par place selon les règles configurées. */
+    private static void appliquerRemisesPlaces(Connection connexion,
+            Map<String, List<PlaceSeanceDispo>> placesParSeance) throws Exception {
+        Map<String, Integer> compteCategories = new HashMap<String, Integer>();
+        for (List<PlaceSeanceDispo> places : placesParSeance.values()) {
+            for (PlaceSeanceDispo place : places) {
+                if (place == null || ReglesCinema.estVide(place.getIdcategorieplace())) {
+                    throw new IllegalArgumentException("Une place ne possède pas de catégorie valide.");
+                }
+                String categorie = place.getIdcategorieplace().trim();
+                Integer nombre = compteCategories.get(categorie);
+                compteCategories.put(categorie, nombre == null ? 1 : nombre + 1);
+
+                BigDecimal prixInitial = ReglesCinema.montantDecimal(place.getPrix_base(),
+                        "Le prix initial de la place est invalide.");
+                place.setPrix_initial(prixInitial.doubleValue());
+                place.setTaux_remise(0);
+                place.setIdremise_appliquee(null);
+                place.setMontant_remise(0);
+                place.setPrix_final(prixInitial.doubleValue());
+            }
+        }
+
+        for (List<PlaceSeanceDispo> places : placesParSeance.values()) {
+            for (PlaceSeanceDispo place : places) {
+                RemiseService.RemiseAppliquee remise = RemiseService.rechercherMeilleureRemise(
+                        connexion, compteCategories, place.getIdcategorieplace());
+                if (remise == null) {
+                    continue;
+                }
+
+                BigDecimal prixInitial = ReglesCinema.montantDecimal(place.getPrix_initial(),
+                        "Le prix initial de la place est invalide.");
+                BigDecimal montantRemise = RemiseService.calculerMontantRemise(prixInitial, remise);
+                BigDecimal prixFinal = prixInitial.subtract(montantRemise)
+                        .setScale(2, java.math.RoundingMode.HALF_UP);
+
+                place.setTaux_remise(remise.getTaux());
+                place.setIdremise_appliquee(remise.getIdRemise());
+                place.setMontant_remise(montantRemise.doubleValue());
+                place.setPrix_final(prixFinal.doubleValue());
+                place.setPrix_base(prixFinal.doubleValue());
+            }
+        }
+    }
+
     /** Calcule le total depuis les prix relus en base, puis insère la réservation mère dans la transaction reçue. */
     private static Reservation creerReservationMere(UserEJB userEJB, Connection connexion,
             Reservation reservation, Map<String, List<PlaceSeanceDispo>> placesParSeance) throws Exception {
@@ -302,6 +350,7 @@ public class ReservationService {
 
         int nombrePlaces = 0;
         BigDecimal montantTotal = BigDecimal.ZERO.setScale(2);
+        Map<String, Integer> compteCategories = new HashMap<String, Integer>();
         for (List<PlaceSeanceDispo> places : placesParSeance.values()) {
             if (places == null || places.isEmpty()) {
                 throw new IllegalArgumentException("Une séance sélectionnée ne contient aucune place.");
@@ -311,6 +360,11 @@ public class ReservationService {
                     throw new IllegalArgumentException("La sélection contient une place vide.");
                 }
                 nombrePlaces = Math.addExact(nombrePlaces, 1);
+                String categorie = place.getIdcategorieplace();
+                if (!ReglesCinema.estVide(categorie)) {
+                    Integer nombreCategorie = compteCategories.get(categorie);
+                    compteCategories.put(categorie, nombreCategorie == null ? 1 : nombreCategorie + 1);
+                }
                 montantTotal = montantTotal.add(ReglesCinema.montantDecimal(
                         place.getPrix_base(), "Le tarif de la place " + place.getIdplace() + " est invalide."));
             }
@@ -414,8 +468,12 @@ public class ReservationService {
                 reservationPlace.setIdseance(idSeance);
                 reservationPlace.setIdplace(place.getIdplace());
                 reservationPlace.setIdcategorieplace(place.getIdcategorieplace());
+                reservationPlace.setPrix_initial(place.getPrix_initial());
+                reservationPlace.setTaux_remise(place.getTaux_remise());
+                reservationPlace.setIdremise_appliquee(place.getIdremise_appliquee());
+                reservationPlace.setMontant_remise(place.getMontant_remise());
                 reservationPlace.setPrix_unitaire(ReglesCinema.montantDecimal(
-                        place.getPrix_base(), "Le tarif de la place " + place.getIdplace() + " est invalide.").doubleValue());
+                        place.getPrix_final(), "Le prix final de la place " + place.getIdplace() + " est invalide.").doubleValue());
                 reservationPlace.setDate_blocage(dateBlocage);
                 reservationPlace.setDate_expiration(reservation.getDate_expiration());
                 reservationPlace.setStatut(ReglesCinema.STATUT_BLOQUEE);
@@ -466,8 +524,12 @@ public class ReservationService {
                 ligne.setIdcategorieplace(place.getIdcategorieplace());
                 ligne.setDesignation("Billet " + place.getIdplace());
                 ligne.setQuantite(1);
-                ligne.setPrix_unitaire(place.getPrix_base());
-                ligne.setMontant_ligne(place.getPrix_base());
+                ligne.setPrix_initial(place.getPrix_initial());
+                ligne.setTaux_remise(place.getTaux_remise());
+                ligne.setIdremise_appliquee(place.getIdremise_appliquee());
+                ligne.setMontant_remise(place.getMontant_remise());
+                ligne.setPrix_unitaire(place.getPrix_final());
+                ligne.setMontant_ligne(place.getPrix_final());
                 ligne.setStatut(ReglesCinema.STATUT_BLOQUEE);
                 userEJB.createObject(ligne, connexion);
             }

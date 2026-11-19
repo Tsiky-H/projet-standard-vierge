@@ -420,3 +420,10 @@ Documentation finale
   - Depend de: `cinema-donnees-reelles-2026.sql` et de la décision sur le
     modèle de genre.
 
+Avoir une table remise: id, cat_reservee, nombre, val, cat_remise
+
+regle remise(exemple): si on achete 4 places sur la categorie A, on obtient 50% sur la categorie B
+si on achete 2 places sur la categorie B, on obtient 75% sur la categorie C
+la remise est configurable
+la remise n'est pas cumulable
+la remise est applicable sur chaque place achetee

@@ -58,6 +58,12 @@ USING (
            'module.jsp?but=vente/vente-liste.jsp', 1, 3, 'CINEMA000009' FROM DUAL
     UNION ALL SELECT 'CINEMA000020', 'Achat direct', 'shopping_cart',
            'module.jsp?but=vente/vente-directe-saisie.jsp', 2, 3, 'CINEMA000009' FROM DUAL
+         UNION ALL SELECT 'CINEMA000021', 'Remises', 'percent', NULL,
+           7, 2, 'CINEMA000001' FROM DUAL
+         UNION ALL SELECT 'CINEMA000022', 'Liste des remises', 'list',
+           'module.jsp?but=cinema/remise/remise-liste.jsp', 1, 3, 'CINEMA000021' FROM DUAL
+         UNION ALL SELECT 'CINEMA000023', 'Nouvelle remise', 'add',
+           'module.jsp?but=cinema/remise/remise-saisie.jsp', 2, 3, 'CINEMA000021' FROM DUAL
 ) source
 ON (cible.ID = source.ID)
 WHEN MATCHED THEN UPDATE SET cible.LIBELLE=source.LIBELLE, cible.ICONE=source.ICONE,
@@ -77,6 +83,9 @@ USING (
     UNION ALL SELECT 'CINEMAUSR0017', 'CINEMA000017' FROM DUAL
     UNION ALL SELECT 'CINEMAUSR0019', 'CINEMA000019' FROM DUAL
     UNION ALL SELECT 'CINEMAUSR0020', 'CINEMA000020' FROM DUAL
+    UNION ALL SELECT 'CINEMAUSR0021', 'CINEMA000021' FROM DUAL
+    UNION ALL SELECT 'CINEMAUSR0022', 'CINEMA000022' FROM DUAL
+    UNION ALL SELECT 'CINEMAUSR0023', 'CINEMA000023' FROM DUAL
 ) source
 ON (cible.ID = source.ID)
 WHEN MATCHED THEN UPDATE SET cible.IDMENU=source.IDMENU, cible.REFUSER=NULL,

@@ -16,6 +16,10 @@ public class VenteDetail extends ClassMAPTable {
     private String idcategorieplace;
     private String designation;
     private double quantite = 1;
+    private double prix_initial;
+    private double taux_remise;
+    private String idremise_appliquee;
+    private double montant_remise;
     private double prix_unitaire;
     private double montant_ligne;
     // private String statut = ReglesCinema.STATUT_BLOQUEE;
@@ -59,14 +63,23 @@ public class VenteDetail extends ClassMAPTable {
                 || BigDecimal.valueOf(quantite).setScale(2, RoundingMode.HALF_UP).signum() <= 0) {
             throw new IllegalArgumentException("La quantité de la ligne est invalide.");
         }
+        BigDecimal prixInitial = ReglesCinema.montantDecimal(
+                prix_initial, "Le prix initial de la ligne est invalide.");
+        BigDecimal tauxRemise = ReglesCinema.montantDecimal(
+                taux_remise, "Le taux de remise de la ligne est invalide.");
+        BigDecimal montantRemise = ReglesCinema.montantDecimal(
+                montant_remise, "Le montant de remise de la ligne est invalide.");
         BigDecimal prix = ReglesCinema.montantDecimal(
                 prix_unitaire, "Le prix unitaire de la ligne est invalide.");
         BigDecimal montant = ReglesCinema.montantDecimal(
                 montant_ligne, "Le montant de la ligne est invalide.");
         BigDecimal quantiteDecimal = BigDecimal.valueOf(quantite).setScale(2, RoundingMode.HALF_UP);
-        if (prix.signum() < 0 || montant.signum() < 0
+        if (prixInitial.signum() < 0 || tauxRemise.signum() < 0
+                || tauxRemise.compareTo(BigDecimal.valueOf(100)) > 0
+                || montantRemise.signum() < 0 || prix.signum() < 0 || montant.signum() < 0
+                || prixInitial.subtract(montantRemise).compareTo(prix) != 0
                 || quantiteDecimal.multiply(prix).setScale(2, RoundingMode.HALF_UP).compareTo(montant) != 0) {
-            throw new IllegalArgumentException("Le prix ou le montant de la ligne est invalide.");
+            throw new IllegalArgumentException("Le prix ou les montants de remise de la ligne sont invalides.");
         }
         if (!ReglesCinema.STATUT_BLOQUEE.equals(statut)) {
             throw new IllegalArgumentException("Une ligne de vente créée doit avoir le statut BLOQUEE.");
@@ -214,6 +227,38 @@ public class VenteDetail extends ClassMAPTable {
 
     public void setQuantite(double v) {
         quantite = v;
+    }
+
+    public double getPrix_initial() {
+        return prix_initial;
+    }
+
+    public void setPrix_initial(double v) {
+        prix_initial = v;
+    }
+
+    public double getTaux_remise() {
+        return taux_remise;
+    }
+
+    public void setTaux_remise(double v) {
+        taux_remise = v;
+    }
+
+    public String getIdremise_appliquee() {
+        return idremise_appliquee;
+    }
+
+    public void setIdremise_appliquee(String v) {
+        idremise_appliquee = v;
+    }
+
+    public double getMontant_remise() {
+        return montant_remise;
+    }
+
+    public void setMontant_remise(double v) {
+        montant_remise = v;
     }
 
     public double getPrix_unitaire() {

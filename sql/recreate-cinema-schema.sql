@@ -11,6 +11,6 @@ WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK
 @@cleanup-cinema-schema.sql
 @@framework-base.sql
 @@cinema-application-final.sql
-@@cinema-application-data.sql
+
 
 PROMPT Reconstruction complete du schema CINEMA terminee.

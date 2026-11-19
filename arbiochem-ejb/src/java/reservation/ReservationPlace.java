@@ -14,6 +14,10 @@ public class ReservationPlace extends ClassMAPTable {
     private String idseance;
     private String idplace;
     private String idcategorieplace;
+    private double prix_initial;
+    private double taux_remise;
+    private String idremise_appliquee;
+    private double montant_remise;
     private double prix_unitaire;
     // private String statut = ReglesCinema.STATUT_BLOQUEE;
     private String statut;
@@ -36,10 +40,19 @@ public class ReservationPlace extends ClassMAPTable {
                 || idcategorieplace == null || idcategorieplace.trim().isEmpty()) {
             throw new IllegalArgumentException("Le détail, la séance, la place et sa catégorie sont obligatoires.");
         }
+        BigDecimal prixInitial = ReglesCinema.montantDecimal(
+                prix_initial, "Le prix initial de la place est invalide.");
+        BigDecimal montantRemise = ReglesCinema.montantDecimal(
+                montant_remise, "Le montant de remise de la place est invalide.");
+        BigDecimal tauxRemise = ReglesCinema.montantDecimal(
+                taux_remise, "Le taux de remise de la place est invalide.");
         BigDecimal prix = ReglesCinema.montantDecimal(
                 prix_unitaire, "Le prix unitaire de la place est invalide.");
-        if (prix.signum() < 0) {
-            throw new IllegalArgumentException("Le prix unitaire de la place est invalide.");
+        if (prixInitial.signum() < 0 || montantRemise.signum() < 0
+                || prix.signum() < 0 || tauxRemise.signum() < 0
+                || tauxRemise.compareTo(BigDecimal.valueOf(100)) > 0
+                || prixInitial.subtract(montantRemise).compareTo(prix) != 0) {
+            throw new IllegalArgumentException("Les montants de remise de la place sont invalides.");
         }
         if (!ReglesCinema.STATUT_BLOQUEE.equals(statut)) {
             throw new IllegalArgumentException("Une place créée dans une réservation doit avoir le statut BLOQUEE.");
@@ -143,6 +156,14 @@ public class ReservationPlace extends ClassMAPTable {
     public void setIdplace(String v) { idplace = v; }
     public String getIdcategorieplace() { return idcategorieplace; }
     public void setIdcategorieplace(String v) { idcategorieplace = v; }
+    public double getPrix_initial() { return prix_initial; }
+    public void setPrix_initial(double v) { prix_initial = v; }
+    public double getTaux_remise() { return taux_remise; }
+    public void setTaux_remise(double v) { taux_remise = v; }
+    public String getIdremise_appliquee() { return idremise_appliquee; }
+    public void setIdremise_appliquee(String v) { idremise_appliquee = v; }
+    public double getMontant_remise() { return montant_remise; }
+    public void setMontant_remise(double v) { montant_remise = v; }
     public double getPrix_unitaire() { return prix_unitaire; }
     public void setPrix_unitaire(double v) { prix_unitaire = v; }
     public String getStatut() { return statut; }
